@@ -1,6 +1,6 @@
 # Eng11 — The Revision Department
 
-An interactive fiction game about the Ministry of Truth, historical revision, and the lives entered into the official record. It runs inside a 3D portfolio-style computer environment and includes incoming assignment emails, a character profile editor, draft saves and restore checkpoints, a History Book, and a searchable local archive.
+An interactive fiction game about the Ministry of Truth, historical revision, and the lives entered into the official record. It runs inside a 3D portfolio-style computer environment and includes incoming assignment emails, a character profile editor, draft saves and restore checkpoints, a History Book, and a searchable local archive, and a clickable desk-mounted personnel disk that opens a character dossier on the computer.
 
 ## Run locally
 

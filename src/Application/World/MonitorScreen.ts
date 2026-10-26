@@ -31,6 +31,7 @@ export default class MonitorScreen extends EventEmitter {
     inComputer: boolean;
     dimmingPlane: THREE.Mesh;
     videoTextures: { [key in string]: THREE.VideoTexture };
+    iframe: HTMLIFrameElement;
 
     constructor() {
         super();
@@ -110,6 +111,7 @@ export default class MonitorScreen extends EventEmitter {
 
         // Create iframe
         const iframe = document.createElement('iframe');
+        this.iframe = iframe;
 
         // Bubble mouse move events to the main application, so we can affect the camera
         iframe.onload = () => {
@@ -150,7 +152,7 @@ export default class MonitorScreen extends EventEmitter {
         // iframe.src = 'http://localhost:3000/';
         // Render the local character-revision game inside the portfolio's
         // original monitor instead of loading the remote portfolio iframe.
-        iframe.src = '/revision/index.html?v=20261026-checkpoints';
+        iframe.src = '/revision/index.html?v=hard-disk-1';
         iframe.style.width = IFRAME_SIZE.w + 'px';
         iframe.style.height = IFRAME_SIZE.h + 'px';
         iframe.style.opacity = '1';
@@ -162,6 +164,20 @@ export default class MonitorScreen extends EventEmitter {
 
         // Create CSS plane
         this.createCssPlane(container);
+    }
+
+    openPersonFile() {
+        this.iframe.contentWindow?.postMessage(
+            { type: 'open-person-file' },
+            window.location.origin
+        );
+    }
+
+    closePersonFile() {
+        this.iframe.contentWindow?.postMessage(
+            { type: 'close-person-file' },
+            window.location.origin
+        );
     }
 
     /**
