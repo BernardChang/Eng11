@@ -3,6 +3,7 @@ import TWEEN from '@tweenjs/tween.js';
 import Application from '../Application';
 import Camera, { CameraKey } from '../Camera/Camera';
 import MonitorScreen from './MonitorScreen';
+import UIEventBus from '../UI/EventBus';
 
 const CASE_COUNT = 6;
 
@@ -32,10 +33,14 @@ export default class HardDisk {
     private fallbackEjectButton: HTMLButtonElement;
     private readonly purgedDisks = new Set<number>();
     private purgeHole: THREE.Group;
-    // Right side of the computer, on the desk surface.
-    private readonly purgeHolePosition = new THREE.Vector3(1050, -410, 850);
+    // The black circle sits directly beneath the coffee cup on the desk.
+    private readonly purgeHolePosition = new THREE.Vector3(1740, -458, 909);
     private purging = false;
     private pointerPosition = new THREE.Vector2(-1, -1);
+    private coffeeMotion: THREE.Group | undefined;
+    private coffeeMotionHome = new THREE.Vector3();
+    private coffeeAnimationStartedAt: number | undefined;
+    private coffeeSteam: THREE.Object3D | undefined;
 
     constructor(monitorScreen: MonitorScreen) {
         this.application = new Application();
@@ -105,6 +110,68 @@ export default class HardDisk {
         circle.position.y = 8;
         hole.add(circle);
         return hole;
+    }
+
+    /** Animate the separate coffee mesh into the desk circle after Start. */
+    animateCoffeeCup(cup: THREE.Object3D, steam: THREE.Object3D) {
+        this.scene.updateMatrixWorld(true);
+        const bounds = new THREE.Box3().setFromObject(cup);
+        this.coffeeMotionHome.copy(bounds.getCenter(new THREE.Vector3()));
+        this.coffeeMotion = new THREE.Group();
+        this.coffeeMotion.position.copy(this.coffeeMotionHome);
+        this.scene.add(this.coffeeMotion);
+        this.coffeeMotion.attach(cup);
+        this.coffeeSteam = steam;
+
+        UIEventBus.on('loadingScreenDone', () => {
+            if (this.coffeeAnimationStartedAt !== undefined) return;
+            this.monitorScreen.setFocusLocked(true);
+            this.coffeeAnimationStartedAt = performance.now() + 800;
+        });
+    }
+
+    private updateCoffeeCup() {
+        if (!this.coffeeMotion || this.coffeeAnimationStartedAt === undefined) return;
+        const elapsed = performance.now() - this.coffeeAnimationStartedAt;
+        if (elapsed < 0) return;
+
+        const duration = 3200;
+        const progress = THREE.MathUtils.clamp(elapsed / duration, 0, 1);
+        const ease = (value: number) => value * value * (3 - 2 * value);
+        const drop = ease(THREE.MathUtils.clamp(progress / 0.48, 0, 1));
+        const sink = ease(THREE.MathUtils.clamp((progress - 0.48) / 0.52, 0, 1));
+        const swirl = (1 - progress) * 85;
+        const angle = progress * Math.PI * 4;
+
+        if (progress < 0.48) {
+            this.coffeeMotion.position.y = THREE.MathUtils.lerp(
+                this.coffeeMotionHome.y,
+                this.purgeHolePosition.y + 115,
+                drop
+            );
+        } else {
+            this.coffeeMotion.position.y = THREE.MathUtils.lerp(
+                this.purgeHolePosition.y + 115,
+                this.purgeHolePosition.y - 760,
+                sink
+            );
+        }
+        this.coffeeMotion.position.x = this.coffeeMotionHome.x + Math.cos(angle) * swirl;
+        this.coffeeMotion.position.z = this.coffeeMotionHome.z + Math.sin(angle) * swirl;
+        this.coffeeMotion.rotation.set(
+            progress * 0.75,
+            angle,
+            progress * Math.PI * 0.6
+        );
+        this.coffeeMotion.scale.setScalar(1 - sink * 0.96);
+
+        if (progress > 0.08 && this.coffeeSteam) this.coffeeSteam.visible = false;
+        if (progress >= 1) {
+            this.coffeeMotion.visible = false;
+            if (this.coffeeSteam) this.coffeeSteam.visible = false;
+            this.monitorScreen.setFocusLocked(false);
+            this.coffeeAnimationStartedAt = undefined;
+        }
     }
 
     private createRack(): THREE.Group {
@@ -361,6 +428,7 @@ export default class HardDisk {
     }
 
     update() {
+        this.updateCoffeeCup();
         const deskIsVisible = [
             this.camera.currentKeyframe,
             this.camera.targetKeyframe,

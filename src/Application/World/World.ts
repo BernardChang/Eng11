@@ -37,6 +37,12 @@ export default class World {
             this.monitorScreen = new MonitorScreen();
             this.hardDisk = new HardDisk(this.monitorScreen);
             this.coffeeSteam = new CoffeeSteam();
+            const coffeeCup = this.resources.items.gltfModel.decorModel.scene.getObjectByName(
+                'coffee'
+            );
+            if (coffeeCup) {
+                this.hardDisk.animateCoffeeCup(coffeeCup, this.coffeeSteam.model.mesh);
+            }
             this.audioManager = new AudioManager();
             // const hb = new Hitboxes();
             // this.cursor = new Cursor();
