@@ -159,7 +159,7 @@ export default class MonitorScreen extends EventEmitter {
         // iframe.src = 'http://localhost:3000/';
         // Render the local character-revision game inside the portfolio's
         // original monitor instead of loading the remote portfolio iframe.
-        iframe.src = '/revision/index.html?v=purge-hole-visible-dossiers-2';
+        iframe.src = '/revision/index.html?v=purge-hole-more-disks-3';
         iframe.style.width = IFRAME_SIZE.w + 'px';
         iframe.style.height = IFRAME_SIZE.h + 'px';
         iframe.style.opacity = '1';

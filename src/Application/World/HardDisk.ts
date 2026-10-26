@@ -5,7 +5,7 @@ import Camera, { CameraKey } from '../Camera/Camera';
 import MonitorScreen from './MonitorScreen';
 import UIEventBus from '../UI/EventBus';
 
-const CASE_COUNT = 6;
+const CASE_COUNT = 10;
 
 /** A small, clickable archive-disk rack placed beside the computer keyboard. */
 export default class HardDisk {
@@ -186,13 +186,13 @@ export default class HardDisk {
         // Long, slotted archive holder. The disks stay upright and parallel,
         // with their broad faces aimed forward and the row turned sideways.
         const base = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(620, 58, 500),
+            new THREE.BoxBufferGeometry(900, 58, 500),
             orange
         );
         base.name = 'diskTrayBase';
         base.position.y = 29;
         rack.add(base);
-        const sideWalls = new THREE.BoxBufferGeometry(620, 105, 36);
+        const sideWalls = new THREE.BoxBufferGeometry(900, 105, 36);
         const leftWall = new THREE.Mesh(sideWalls, orangeLight);
         leftWall.name = 'diskTrayLeftWall';
         leftWall.position.set(0, 66, -232);
@@ -201,7 +201,7 @@ export default class HardDisk {
         rightWall.name = 'diskTrayRightWall';
         rightWall.position.set(0, 66, 232);
         rack.add(rightWall);
-        for (let divider = -2; divider <= 2; divider++) {
+        for (let divider = -4; divider <= 4; divider++) {
             const rib = new THREE.Mesh(
                 new THREE.BoxBufferGeometry(8, 14, 462),
                 orangeLight
@@ -288,6 +288,10 @@ export default class HardDisk {
             { name: 'Elia North', dob: '1960-11-23', job: 'Junior instructor' },
             { name: 'Pavel Sorn', dob: '1939-06-01', job: 'Supply coordinator' },
             { name: 'Iris Bell', dob: '1958-04-15', job: 'Community liaison' },
+            { name: 'Sera Quill', dob: '1946-09-27', job: 'Weather records analyst' },
+            { name: 'Oren Vale', dob: '1951-01-16', job: 'Civic transport inspector' },
+            { name: 'Cato Mire', dob: '1937-12-08', job: 'Public works foreman' },
+            { name: 'Nella Firth', dob: '1963-05-21', job: 'Junior archive assistant' },
         ];
         let details = defaults[index];
         try {

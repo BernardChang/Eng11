@@ -157,7 +157,7 @@ export default class Camera extends EventEmitter {
         // Keep the complete monitor page in frame on narrow windows while
         // preserving the closer cinematic focus on landscape displays.
         const aspect = this.sizes.width / this.sizes.height;
-        const referenceDistance = 1850 - 255;
+        const referenceDistance = 2000 - 255;
         const distance = referenceDistance * Math.max(1, 1.5 / aspect);
         this.keyframes.monitor.position.z = 255 + distance;
         if (this.currentKeyframe === CameraKey.MONITOR) {
