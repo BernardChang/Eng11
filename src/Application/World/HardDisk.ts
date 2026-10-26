@@ -26,6 +26,7 @@ export default class HardDisk {
     private hoveredIndex: number | undefined;
     private hint: HTMLDivElement;
     private focusing = false;
+    private ejecting = false;
     private pointerPosition = new THREE.Vector2(-1, -1);
 
     constructor(monitorScreen: MonitorScreen) {
@@ -367,45 +368,71 @@ export default class HardDisk {
     }
 
     private eject() {
-        if (!this.inserted) return;
+        if (!this.inserted || this.ejecting) return;
         const index = this.selectedIndex ?? 0;
         const disk = this.disks[index];
         const returnPosition = this.rack
             .localToWorld(this.homeLocalPositions[index].clone())
             .clone();
+        let finished = false;
+        let activePositionTween: { stop: () => unknown } | undefined;
+        let activeRotationTween: { stop: () => unknown } | undefined;
+        let safetyTimer = 0;
+        const finishReturn = () => {
+            if (finished) return;
+            finished = true;
+            window.clearTimeout(safetyTimer);
+            activePositionTween?.stop();
+            activeRotationTween?.stop();
+            this.rack.updateMatrixWorld(true);
+            this.rack.attach(disk);
+            disk.position.copy(this.homeLocalPositions[index]);
+            disk.rotation.copy(this.homeLocalRotations[index]);
+            disk.visible = true;
+            this.inserted = false;
+            this.ejecting = false;
+            this.focusing = false;
+            this.setHovered(undefined);
+            this.camera.transition(CameraKey.ARCHIVE, 1050);
+        };
+
+        this.ejecting = true;
         this.monitorScreen.closePersonFile();
         this.camera.transition(CameraKey.DESK, 1150);
         disk.visible = true;
         disk.position.copy(this.slotPosition);
         disk.rotation.set(Math.PI / 2, 0, 0);
-        new TWEEN.Tween(disk.position)
+
+        const returnToRack = () => {
+            const tween = new TWEEN.Tween(disk.position)
+                .to(
+                    {
+                        x: returnPosition.x,
+                        y: returnPosition.y,
+                        z: returnPosition.z,
+                    },
+                    1100
+                )
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .onComplete(finishReturn);
+            activePositionTween = tween;
+            tween.start();
+        };
+
+        const slideOut = new TWEEN.Tween(disk.position)
             .to({ x: this.slotPosition.x, y: this.slotPosition.y, z: 960 }, 650)
             .easing(TWEEN.Easing.Quadratic.Out)
-            .onComplete(() => {
-                new TWEEN.Tween(disk.position)
-                    .to(
-                        {
-                            x: returnPosition.x,
-                            y: returnPosition.y,
-                            z: returnPosition.z,
-                        },
-                        1100
-                    )
-                    .easing(TWEEN.Easing.Cubic.InOut)
-                    .onComplete(() => {
-                        this.rack.attach(disk);
-                        disk.position.copy(this.homeLocalPositions[index]);
-                        disk.rotation.copy(this.homeLocalRotations[index]);
-                        this.inserted = false;
-                        this.focusing = false;
-                        this.camera.transition(CameraKey.ARCHIVE, 1050);
-                    })
-                    .start();
-                new TWEEN.Tween(disk.rotation)
-                    .to({ x: 0, y: this.homeLocalRotations[index].y }, 520)
-                    .easing(TWEEN.Easing.Cubic.InOut)
-                    .start();
-            })
-            .start();
-    }
-}
+            .onComplete(returnToRack);
+        activePositionTween = slideOut;
+        slideOut.start();
+
+        const rotateHome = new TWEEN.Tween(disk.rotation)
+            .to({ x: 0, y: this.homeLocalRotations[index].y }, 650)
+            .easing(TWEEN.Easing.Cubic.InOut);
+        activeRotationTween = rotateHome;
+        rotateHome.start();
+
+        // If a tween is interrupted by a camera or tab transition, snap the
+        // disk back to its recorded slot instead of leaving it detached.
+        safetyTimer = window.setTimeout(finishReturn, 2400);
+    }}
