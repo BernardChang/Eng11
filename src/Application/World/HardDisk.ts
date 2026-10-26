@@ -61,30 +61,30 @@ export default class HardDisk {
             .floppyDiskModel.scene;
 
         // Long, slotted archive holder. The disks stay upright and parallel,
-        // with their broad faces aligned and the row running front to back.
+        // with their broad faces aimed forward and the row turned sideways.
         const base = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(500, 58, 620),
+            new THREE.BoxBufferGeometry(620, 58, 500),
             orange
         );
         base.name = 'diskTrayBase';
         base.position.y = 29;
         rack.add(base);
-        const sideWalls = new THREE.BoxBufferGeometry(36, 105, 620);
+        const sideWalls = new THREE.BoxBufferGeometry(620, 105, 36);
         const leftWall = new THREE.Mesh(sideWalls, orangeLight);
         leftWall.name = 'diskTrayLeftWall';
-        leftWall.position.set(-232, 66, 0);
+        leftWall.position.set(0, 66, -232);
         rack.add(leftWall);
         const rightWall = new THREE.Mesh(sideWalls, orangeLight);
         rightWall.name = 'diskTrayRightWall';
-        rightWall.position.set(232, 66, 0);
+        rightWall.position.set(0, 66, 232);
         rack.add(rightWall);
         for (let divider = -2; divider <= 2; divider++) {
             const rib = new THREE.Mesh(
-                new THREE.BoxBufferGeometry(462, 14, 8),
+                new THREE.BoxBufferGeometry(8, 14, 462),
                 orangeLight
             );
             rib.name = `diskSlotDivider${divider + 3}`;
-            rib.position.set(0, 64, divider * 72);
+            rib.position.set(divider * 72, 64, 0);
             rack.add(rib);
         }
 
@@ -92,9 +92,9 @@ export default class HardDisk {
             const caseGroup = new THREE.Group();
             caseGroup.name = `personnelDisk${index + 1}`;
             const diskHomeY = 245;
-            const diskHomeZ = (index - (CASE_COUNT - 1) / 2) * 72;
-            caseGroup.position.set(0, diskHomeY, diskHomeZ);
-            caseGroup.rotation.set(0, 0, 0);
+            const diskHomeX = (index - (CASE_COUNT - 1) / 2) * 72;
+            caseGroup.position.set(diskHomeX, diskHomeY, 0);
+            caseGroup.rotation.set(0, Math.PI / 2, 0);
             caseGroup.userData.homeY = diskHomeY;
             this.homeLocalPositions.push(caseGroup.position.clone());
             this.homeLocalRotations.push(caseGroup.rotation.clone());
