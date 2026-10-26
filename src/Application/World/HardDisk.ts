@@ -97,7 +97,6 @@ export default class HardDisk {
 
             const model = floppyModel.clone(true);
             model.name = `floppyModel${index + 1}`;
-            model.rotation.x = Math.PI / 2;
             model.traverse((child) => {
                 if (child instanceof THREE.Mesh) {
                     child.castShadow = true;
