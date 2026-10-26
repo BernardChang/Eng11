@@ -17,11 +17,16 @@ export default class HardDisk {
     hotspots: HTMLButtonElement[] = [];
     disks: THREE.Group[] = [];
     outlines: THREE.LineSegments[] = [];
+    homeLocalPositions: THREE.Vector3[] = [];
     homePosition: THREE.Vector3;
+    driveSlot: THREE.Group;
+    readonly slotPosition = new THREE.Vector3(350, -220, 690);
     inserted = false;
     selectedIndex: number | undefined;
+    private hoveredIndex: number | undefined;
     private hint: HTMLDivElement;
     private focusing = false;
+    private pointerPosition = new THREE.Vector2(-1, -1);
 
     constructor(monitorScreen: MonitorScreen) {
         this.application = new Application();
@@ -34,12 +39,17 @@ export default class HardDisk {
         this.rack = this.createRack();
         this.rack.position.copy(this.homePosition);
         this.scene.add(this.rack);
+        this.driveSlot = this.createDriveSlot();
+        this.scene.add(this.driveSlot);
 
         this.hint = document.createElement('div');
         this.hint.textContent = 'SELECT A PERSONNEL DISK';
         this.hint.style.cssText =
             'position:fixed;display:none;z-index:10003;pointer-events:none;padding:9px 13px;background:#111;color:#fff;border:1px solid #fff;font:12px monospace;letter-spacing:.08em;';
         document.body.appendChild(this.hint);
+        window.addEventListener('mousemove', (event) => {
+            this.pointerPosition.set(event.clientX, event.clientY);
+        });
         window.addEventListener('message', this.onMessage);
     }
 
@@ -84,6 +94,7 @@ export default class HardDisk {
             const diskHomeY = 112 + index % 2 * 3;
             caseGroup.position.set(x, diskHomeY, -20 + index * 4);
             caseGroup.userData.homeY = diskHomeY;
+            this.homeLocalPositions.push(caseGroup.position.clone());
             rack.add(caseGroup);
             this.disks.push(caseGroup);
 
@@ -208,6 +219,34 @@ export default class HardDisk {
         return rack;
     }
 
+    /** Adds a small, visible drive opening to the front of the retro computer. */
+    private createDriveSlot(): THREE.Group {
+        const slot = new THREE.Group();
+        slot.name = 'personnelDiskDriveSlot';
+        slot.position.set(350, -220, 746);
+        const frame = new THREE.Mesh(
+            new THREE.BoxBufferGeometry(430, 118, 24),
+            new THREE.MeshBasicMaterial({ color: 0x4a4841 })
+        );
+        const opening = new THREE.Mesh(
+            new THREE.BoxBufferGeometry(390, 74, 8),
+            new THREE.MeshBasicMaterial({ color: 0x080908 })
+        );
+        opening.position.z = 15;
+        const inner = new THREE.Mesh(
+            new THREE.BoxBufferGeometry(366, 8, 3),
+            new THREE.MeshBasicMaterial({ color: 0x8b897e })
+        );
+        inner.position.set(0, 22, 20);
+        const statusLight = new THREE.Mesh(
+            new THREE.BoxBufferGeometry(12, 12, 4),
+            new THREE.MeshBasicMaterial({ color: 0x9d332b })
+        );
+        statusLight.position.set(198, 0, 17);
+        slot.add(frame, opening, inner, statusLight);
+        return slot;
+    }
+
     private createDiskHotspot(index: number) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -219,9 +258,7 @@ export default class HardDisk {
             if (!this.focusing) this.setHovered(index);
         });
         button.addEventListener('pointerleave', () => {
-            if (!this.focusing && this.selectedIndex !== index) {
-                this.setHovered(undefined);
-            }
+            if (!this.focusing) this.refreshHoveredDisk();
         });
         button.addEventListener('mousedown', (event) => {
             event.preventDefault();
@@ -238,10 +275,10 @@ export default class HardDisk {
     }
 
     private setHovered(index: number | undefined) {
-        if (this.selectedIndex !== undefined && this.selectedIndex !== index) {
-            this.liftDisk(this.selectedIndex, false);
-        }
+        if (this.hoveredIndex === index) return;
+        if (this.hoveredIndex !== undefined) this.liftDisk(this.hoveredIndex, false);
         if (index !== undefined) this.liftDisk(index, true);
+        this.hoveredIndex = index;
         this.outlines.forEach((outline, outlineIndex) => {
             outline.visible = outlineIndex === index;
         });
@@ -251,6 +288,20 @@ export default class HardDisk {
             this.hint.textContent = `DISK ${String(index + 1).padStart(2, '0')} · CLICK TO FOCUS`;
             this.hint.style.display = 'block';
         }
+    }
+
+    private refreshHoveredDisk() {
+        const index = this.hotspots.findIndex((hotspot) => {
+            const bounds = hotspot.getBoundingClientRect();
+            return (
+                this.pointerPosition.x >= bounds.left &&
+                this.pointerPosition.x <= bounds.right &&
+                this.pointerPosition.y >= bounds.top &&
+                this.pointerPosition.y <= bounds.bottom &&
+                hotspot.style.display !== 'none'
+            );
+        });
+        this.setHovered(index < 0 ? undefined : index);
     }
 
     private liftDisk(index: number, raised: boolean) {
@@ -361,7 +412,7 @@ export default class HardDisk {
                 .to({ progress: 1 }, 1100)
                 .onComplete(() => {
                     this.focusing = false;
-                    this.setHovered(this.selectedIndex);
+                    this.refreshHoveredDisk();
                     this.hint.textContent = 'DISK FOCUSED · CLICK AGAIN TO READ FILE';
                 })
                 .start();
@@ -372,25 +423,84 @@ export default class HardDisk {
         this.inserted = true;
         this.focusing = true;
         this.renderer.domElement.style.cursor = 'default';
-        this.camera.transition(CameraKey.MONITOR, 1500);
-        new TWEEN.Tween({ progress: 0 })
-            .to({ progress: 1 }, 1500)
-            .easing(TWEEN.Easing.Cubic.InOut)
-            .onComplete(() => this.monitorScreen.openPersonFile(index))
+        const disk = this.disks[index];
+        this.rack.updateMatrixWorld(true);
+        const start = disk.getWorldPosition(new THREE.Vector3());
+        this.scene.attach(disk);
+        this.camera.transition(CameraKey.DESK, 1350);
+
+        new TWEEN.Tween(disk.position)
+            .to({ x: start.x, y: start.y + 145, z: start.z + 140 }, 360)
+            .easing(TWEEN.Easing.Cubic.Out)
+            .onComplete(() => {
+                new TWEEN.Tween(disk.position)
+                    .to({ x: this.slotPosition.x, y: this.slotPosition.y, z: 810 }, 940)
+                    .easing(TWEEN.Easing.Cubic.InOut)
+                    .onComplete(() => {
+                        new TWEEN.Tween(disk.position)
+                            .to({ z: this.slotPosition.z }, 300)
+                            .easing(TWEEN.Easing.Quadratic.In)
+                            .onComplete(() => {
+                                disk.visible = false;
+                                this.camera.transition(CameraKey.MONITOR, 1200);
+                                new TWEEN.Tween({ progress: 0 })
+                                    .to({ progress: 1 }, 1200)
+                                    .onComplete(() =>
+                                        this.monitorScreen.openPersonFile(index)
+                                    )
+                                    .start();
+                            })
+                            .start();
+                    })
+                    .start();
+                new TWEEN.Tween(disk.rotation)
+                    .to({ z: -Math.PI / 2 }, 650)
+                    .easing(TWEEN.Easing.Cubic.InOut)
+                    .start();
+            })
             .start();
     }
 
     private eject() {
         if (!this.inserted) return;
+        const index = this.selectedIndex ?? 0;
+        const disk = this.disks[index];
+        const returnPosition = this.rack
+            .localToWorld(this.homeLocalPositions[index].clone())
+            .clone();
         this.monitorScreen.closePersonFile();
-        this.camera.transition(CameraKey.ARCHIVE, 1400);
-        new TWEEN.Tween({ progress: 0 })
-            .to({ progress: 1 }, 1400)
+        this.camera.transition(CameraKey.DESK, 1150);
+        disk.visible = true;
+        disk.position.copy(this.slotPosition);
+        disk.rotation.set(0, 0, -Math.PI / 2);
+        new TWEEN.Tween(disk.position)
+            .to({ x: this.slotPosition.x, y: this.slotPosition.y, z: 810 }, 260)
+            .easing(TWEEN.Easing.Quadratic.Out)
             .onComplete(() => {
-                this.inserted = false;
-                this.focusing = false;
-                this.hint.textContent = 'DISK FOCUSED · CLICK AGAIN TO READ FILE';
-                this.hint.style.display = 'block';
+                new TWEEN.Tween(disk.position)
+                    .to(
+                        {
+                            x: returnPosition.x,
+                            y: returnPosition.y,
+                            z: returnPosition.z,
+                        },
+                        1100
+                    )
+                    .easing(TWEEN.Easing.Cubic.InOut)
+                    .onComplete(() => {
+                        new TWEEN.Tween(disk.rotation)
+                            .to({ z: 0 }, 500)
+                            .onComplete(() => {
+                                this.rack.attach(disk);
+                                disk.position.copy(this.homeLocalPositions[index]);
+                                disk.rotation.set(0, 0, 0);
+                            this.inserted = false;
+                            this.focusing = false;
+                                this.camera.transition(CameraKey.ARCHIVE, 1050);
+                            })
+                            .start();
+                    })
+                    .start();
             })
             .start();
     }
