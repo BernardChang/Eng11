@@ -198,7 +198,9 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
                     <p>History is always under construction.</p>
                     <div style={styles.spacer} />
                     <div style={styles.spacer} />
+                    <p style={styles.red}><b>1984 PUBLIC ARCHIVE</b></p>
                     <p>The Revision Department · Interactive Archive</p>
+                    <p style={styles.byline}>A project by Bernard Chang</p>
                     <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                         <p>Press start to begin{'\xa0'}</p>
                         <span className="blinking-cursor" />
@@ -330,6 +332,11 @@ const styles: StyleSheetCSS = {
     },
     red: {
         color: '#c27a56',
+    },
+    byline: {
+        fontSize: '0.8em',
+        opacity: 0.75,
+        marginTop: 0,
     },
     link: {
         // textDecoration: 'none',
