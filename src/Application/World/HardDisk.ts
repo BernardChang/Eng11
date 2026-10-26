@@ -792,6 +792,10 @@ export default class HardDisk {
             this.createCharacterDisk(event.data.profileId);
             return;
         }
+        if (event.data?.type === 'purge-character-from-history') {
+            this.purgeCharacterFromHistory(event.data.profileId);
+            return;
+        }
         if (event.data?.type === 'cloud-character-disks-updated') {
             this.refreshCreatedCharacterDisks();
             return;
@@ -803,6 +807,53 @@ export default class HardDisk {
         if (event.data?.type === 'eject-hard-disk') this.eject();
         if (event.data?.type === 'purge-hard-disk') this.purgeDisk(event.data.profileId);
     };
+
+    private purgeCharacterFromHistory(profileId: unknown) {
+        if (typeof profileId !== 'string' || !profileId) return;
+        if (this.inserted || this.ejecting || this.focusing) {
+            this.replyCharacterPurge(profileId, 'busy');
+            return;
+        }
+
+        let profile: CharacterDiskProfile | undefined;
+        try {
+            const saved = JSON.parse(
+                window.localStorage.getItem('truth-terminal-profiles-v4') || '{}'
+            );
+            profile = saved.profiles?.find(
+                (entry: CharacterDiskProfile) => entry.id === profileId
+            );
+        } catch {
+            profile = undefined;
+        }
+        if (!profile?.id || !profile.name || !profile.dob || !profile.job) {
+            this.replyCharacterPurge(profileId, 'error');
+            return;
+        }
+
+        let index = MAX_DISKS;
+        while (this.disks[index]) index++;
+        this.createDiskSlot(index, profile, this.rack);
+        const disk = this.disks[index];
+        this.rack.updateMatrixWorld(true);
+        this.scene.attach(disk);
+        disk.visible = true;
+        disk.position.copy(this.slotPosition);
+        disk.rotation.set(Math.PI / 2, 0, 0);
+        disk.scale.setScalar(0.82);
+        disk.userData.directPurge = true;
+        this.selectedIndex = index;
+        this.inserted = true;
+        this.replyCharacterPurge(profileId, 'started');
+        this.purgeDisk(profileId, 'history');
+    }
+
+    private replyCharacterPurge(profileId: string, status: 'started' | 'busy' | 'error') {
+        this.monitorScreen.iframe.contentWindow?.postMessage(
+            { type: 'character-disk-purge-result', profileId, status },
+            window.location.origin
+        );
+    }
 
     private fileDiskToHistory(index: number) {
         if (!this.inserted || this.ejecting || index !== this.selectedIndex) return;
@@ -952,7 +1003,7 @@ export default class HardDisk {
             .start();
     }
 
-    private purgeDisk(profileId?: unknown) {
+    private purgeDisk(profileId?: unknown, returnPage?: string) {
         if (!this.inserted || this.ejecting || this.selectedIndex === undefined) return;
         const index = this.selectedIndex;
         const disk = this.disks[index];
@@ -962,7 +1013,7 @@ export default class HardDisk {
         this.fileOpened = false;
         window.clearTimeout(this.fileOpenTimer);
         this.fallbackEjectButton.style.display = 'none';
-        this.monitorScreen.closePersonFile();
+        this.monitorScreen.closePersonFile(returnPage);
         this.camera.transition(CameraKey.DESK, 1150);
         disk.visible = true;
         disk.position.copy(this.slotPosition);
@@ -980,8 +1031,9 @@ export default class HardDisk {
             this.scene.remove(disk);
             disk.visible = false;
             disk.scale.setScalar(1);
-            this.purgedDisks.add(index);
-            if (index >= CASE_COUNT) {
+            const directPurge = disk.userData.directPurge === true;
+            if (!directPurge) this.purgedDisks.add(index);
+            if (index >= CASE_COUNT && index < MAX_DISKS) {
                 const slotOffset = index - CASE_COUNT;
                 const activeProfileId = this.disks[index]?.userData.profileId;
                 if (
@@ -1005,21 +1057,36 @@ export default class HardDisk {
                     }
                 }
             }
-            try {
-                window.localStorage.setItem(
-                    'truth-terminal-purged-disks-v1',
-                    JSON.stringify(Array.from(this.purgedDisks))
-                );
-            } catch {
-                // Keep the animation complete even when browser storage is unavailable.
+            if (!directPurge) {
+                try {
+                    window.localStorage.setItem(
+                        'truth-terminal-purged-disks-v1',
+                        JSON.stringify(Array.from(this.purgedDisks))
+                    );
+                } catch {
+                    // Keep the animation complete even when browser storage is unavailable.
+                }
             }
-            this.hotspots[index].style.display = 'none';
+            this.hotspots[index]?.remove();
+            if (directPurge) {
+                delete this.disks[index];
+                delete this.hotspots[index];
+                delete this.outlines[index];
+                delete this.homeLocalPositions[index];
+                delete this.homeLocalRotations[index];
+            }
             this.inserted = false;
             this.ejecting = false;
             this.purging = false;
             this.focusing = false;
             this.selectedIndex = undefined;
             this.setHovered(undefined);
+            if (typeof profileId === 'string') {
+                this.monitorScreen.iframe.contentWindow?.postMessage(
+                    { type: 'character-disk-purged', profileId },
+                    window.location.origin
+                );
+            }
             this.camera.transition(CameraKey.ARCHIVE, 1050);
             window.setTimeout(() => this.monitorScreen.setFocusLocked(false), 1100);
         };

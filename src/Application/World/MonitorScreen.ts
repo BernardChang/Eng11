@@ -180,9 +180,9 @@ export default class MonitorScreen extends EventEmitter {
         );
     }
 
-    closePersonFile() {
+    closePersonFile(returnPage?: string) {
         this.iframe.contentWindow?.postMessage(
-            { type: 'close-person-file' },
+            { type: 'close-person-file', returnPage },
             window.location.origin
         );
     }
