@@ -19,7 +19,6 @@ export default class HardDisk {
     outlines: THREE.LineSegments[] = [];
     homeLocalPositions: THREE.Vector3[] = [];
     homePosition: THREE.Vector3;
-    driveSlot: THREE.Group;
     readonly slotPosition = new THREE.Vector3(500, -220, 500);
     inserted = false;
     selectedIndex: number | undefined;
@@ -39,8 +38,6 @@ export default class HardDisk {
         this.rack = this.createRack();
         this.rack.position.copy(this.homePosition);
         this.scene.add(this.rack);
-        this.driveSlot = this.createDriveSlot();
-        this.scene.add(this.driveSlot);
 
         this.hint = document.createElement('div');
         this.hint.textContent = 'SELECT A PERSONNEL DISK';
@@ -81,14 +78,14 @@ export default class HardDisk {
         };
 
         // Orange molded holder: a shallow tray with two raised end supports.
-        addBox('diskTrayBase', [2250, 58, 250], [0, 29, 0], orange);
-        addBox('diskTrayFrontLip', [2250, 76, 32], [0, 75, 123], orangeLight);
-        addBox('diskTrayBackLip', [2250, 104, 32], [0, 89, -123], orange);
-        addBox('diskTrayLeftSupport', [48, 175, 260], [-1080, 115, 0], orangeLight);
-        addBox('diskTrayRightSupport', [48, 175, 260], [1080, 115, 0], orangeLight);
+        addBox('diskTrayBase', [2550, 58, 250], [0, 29, 0], orange);
+        addBox('diskTrayFrontLip', [2550, 76, 32], [0, 75, 123], orangeLight);
+        addBox('diskTrayBackLip', [2550, 104, 32], [0, 89, -123], orange);
+        addBox('diskTrayLeftSupport', [48, 175, 260], [-1230, 115, 0], orangeLight);
+        addBox('diskTrayRightSupport', [48, 175, 260], [1230, 115, 0], orangeLight);
 
         for (let index = 0; index < CASE_COUNT; index++) {
-            const x = (index - (CASE_COUNT - 1) / 2) * 350;
+            const x = (index - (CASE_COUNT - 1) / 2) * 390;
             const caseGroup = new THREE.Group();
             caseGroup.name = `personnelDisk${index + 1}`;
             const diskHomeY = 245;
@@ -100,6 +97,7 @@ export default class HardDisk {
 
             const model = floppyModel.clone(true);
             model.name = `floppyModel${index + 1}`;
+            model.rotation.z = -Math.PI / 2;
             model.traverse((child) => {
                 if (child instanceof THREE.Mesh) {
                     child.castShadow = true;
@@ -129,7 +127,7 @@ export default class HardDisk {
             caseGroup.add(model);
             const outline = new THREE.LineSegments(
                 new THREE.EdgesGeometry(
-                    new THREE.BoxBufferGeometry(342, 378, 30)
+                    new THREE.BoxBufferGeometry(378, 342, 30)
                 ),
                 new THREE.LineBasicMaterial({
                     color: 0xffffff,
@@ -171,34 +169,6 @@ export default class HardDisk {
 
         this.disks.forEach((disk, index) => this.createDiskHotspot(index));
         return rack;
-    }
-
-    /** Adds a small, visible drive opening to the front of the retro computer. */
-    private createDriveSlot(): THREE.Group {
-        const slot = new THREE.Group();
-        slot.name = 'personnelDiskDriveSlot';
-        slot.position.set(500, -220, 746);
-        const frame = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(390, 42, 24),
-            new THREE.MeshBasicMaterial({ color: 0x4a4841 })
-        );
-        const opening = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(350, 20, 8),
-            new THREE.MeshBasicMaterial({ color: 0x080908 })
-        );
-        opening.position.z = 15;
-        const inner = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(330, 3, 3),
-            new THREE.MeshBasicMaterial({ color: 0x8b897e })
-        );
-        inner.position.set(0, 7, 20);
-        const statusLight = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(12, 12, 4),
-            new THREE.MeshBasicMaterial({ color: 0x9d332b })
-        );
-        statusLight.position.set(183, 0, 17);
-        slot.add(frame, opening, inner, statusLight);
-        return slot;
     }
 
     private createDiskHotspot(index: number) {

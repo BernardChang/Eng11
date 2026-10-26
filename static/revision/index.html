@@ -9,6 +9,15 @@
 
 .file-layout{display:grid;grid-template-columns:minmax(230px,.75fr) minmax(0,1.25fr);gap:17px;align-items:stretch}.disk-cover{min-height:330px;padding:25px;background:#252622;color:#f4f1e9;border:1px solid #151614;box-shadow:inset 0 0 0 8px #353630,0 12px 24px #302a2018;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}.disk-cover:before{content:"";position:absolute;inset:17px;border:1px solid #77756c;pointer-events:none}.disk-mark{position:relative;z-index:1;font:10px var(--mono);letter-spacing:.15em;color:#e0b682}.disk-person{position:relative;z-index:1;font:400 31px/1.1 var(--serif);margin-top:auto;margin-bottom:8px}.disk-person-meta{position:relative;z-index:1;font:10px/1.6 var(--mono);color:#c7c2b5}.disk-barcode{position:relative;z-index:1;width:140px;height:30px;margin-top:22px;background:repeating-linear-gradient(90deg,#d4cdbc 0 2px,transparent 2px 5px,#d4cdbc 5px 6px,transparent 6px 9px)}.file-prose{font:15px/1.75 var(--serif);color:#55544d}.file-prose h2{font:400 29px/1.15 var(--serif);color:var(--ink);margin:8px 0}.file-details{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:21px 0}.file-detail{padding:11px;background:#f4f0e7;border:1px solid var(--line)}.file-detail strong{display:block;font:9px var(--mono);letter-spacing:.12em;color:var(--muted);margin-bottom:3px}.file-detail span{font-size:13px}.file-prose p{white-space:pre-line}.disk-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:16px;margin-top:22px}.disk-notice{color:var(--muted);font:10px var(--mono)}@media(max-width:650px){.file-layout{grid-template-columns:1fr}.disk-cover{min-height:250px}.file-details{grid-template-columns:1fr 1fr}}
 
+/* Keep the dossier readable and its eject control reachable inside the monitor. */
+#disk-file .file-layout{grid-template-columns:minmax(180px,.58fr) minmax(0,1.42fr);gap:12px;align-items:start}
+#disk-file .disk-cover{min-height:230px;padding:18px}
+#disk-file .disk-person{font-size:25px}
+#disk-file .card-body.file-prose{max-height:68vh;overflow:auto;padding-bottom:12px}
+#disk-file .disk-actions{position:sticky;bottom:0;z-index:2;background:var(--surface);padding:12px 0 4px;margin-top:14px;flex-wrap:wrap}
+#disk-file .disk-notice{flex:1 1 150px}
+#disk-file .disk-actions .button{flex:0 0 auto}
+@media(max-height:760px){#disk-file .disk-cover{min-height:170px}#disk-file .card-body.file-prose{max-height:61vh}}
 </style>
 </head>
 <body>
