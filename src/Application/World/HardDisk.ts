@@ -633,14 +633,22 @@ export default class HardDisk {
     }
 
     private setHovered(index: number | undefined) {
-        if (this.hoveredIndex === index) return;
+        const archiveIsFocused =
+            this.camera.currentKeyframe === CameraKey.ARCHIVE ||
+            this.camera.targetKeyframe === CameraKey.ARCHIVE;
+        if (this.hoveredIndex === index) {
+            if (index === undefined || !archiveIsFocused) {
+                this.hint.style.display = 'none';
+            }
+            return;
+        }
         if (this.hoveredIndex !== undefined) this.liftDisk(this.hoveredIndex, false);
         if (index !== undefined) this.liftDisk(index, true);
         this.hoveredIndex = index;
         this.outlines.forEach((outline, outlineIndex) => {
             outline.visible = outlineIndex === index;
         });
-        if (index === undefined) {
+        if (index === undefined || !archiveIsFocused) {
             this.hint.style.display = 'none';
         } else {
             this.hint.textContent = `DISK ${String(index + 1).padStart(2, '0')} · CLICK TO FOCUS`;
@@ -850,6 +858,7 @@ export default class HardDisk {
                     this.focusing = false;
                     this.refreshHoveredDisk();
                     this.hint.textContent = 'DISK FOCUSED · CLICK AGAIN TO READ FILE';
+                    this.hint.style.display = 'block';
                 })
                 .start();
         }
