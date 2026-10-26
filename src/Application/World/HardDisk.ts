@@ -52,6 +52,7 @@ export default class HardDisk {
     private coffeeSteam: THREE.Object3D | undefined;
     private readonly createdProfileIds = new Set<string>();
     private readonly pendingProfileIds = new Set<string>();
+    private createdDiskSlots: Array<string | null> = [];
 
     constructor(monitorScreen: MonitorScreen) {
         this.application = new Application();
@@ -394,8 +395,9 @@ export default class HardDisk {
     }
 
     private loadCreatedCharacterDisks() {
-        let ids: string[] = [];
+        let ids: Array<string | null> = [];
         let profiles: CharacterDiskProfile[] = [];
+        let cachedProfiles: Record<string, CharacterDiskProfile> = {};
         try {
             const storedIds = JSON.parse(
                 window.localStorage.getItem(CREATED_DISKS_KEY) || '[]'
@@ -403,25 +405,48 @@ export default class HardDisk {
             const saved = JSON.parse(
                 window.localStorage.getItem('truth-terminal-profiles-v4') || '{}'
             );
-            ids = Array.isArray(storedIds) ? storedIds.filter((id) => typeof id === 'string') : [];
+            cachedProfiles = JSON.parse(
+                window.localStorage.getItem('truth-terminal-disk-profiles-v1') || '{}'
+            );
+            ids = Array.isArray(storedIds)
+                ? storedIds.slice(0, MAX_DISKS - CASE_COUNT).map((id) =>
+                      typeof id === 'string' ? id : null
+                  )
+                : [];
             profiles = Array.isArray(saved.profiles) ? saved.profiles : [];
         } catch {
             return;
         }
 
-        const validIds: string[] = [];
-        for (const id of ids) {
-            const profile = profiles.find((entry) => entry.id === id);
-            if (!profile || this.disks.length >= MAX_DISKS) continue;
-            if (!profile.name || !profile.dob || !profile.job) continue;
-            validIds.push(id);
+        this.createdDiskSlots = ids;
+        this.disks.length = CASE_COUNT + ids.length;
+        const validIds = [...ids];
+        ids.forEach((id, offset) => {
+            if (!id) return;
+            const profile = cachedProfiles[id] || profiles.find((entry) => entry.id === id);
+            if (!profile || !profile.name || !profile.dob || !profile.job) {
+                validIds[offset] = null;
+                return;
+            }
             this.createdProfileIds.add(id);
-            this.createDiskSlot(this.disks.length, profile, this.rack);
-        }
+            this.createDiskSlot(CASE_COUNT + offset, profile, this.rack);
+        });
+        this.createdDiskSlots = validIds;
         try {
-            window.localStorage.setItem(CREATED_DISKS_KEY, JSON.stringify(validIds));
+            window.localStorage.setItem(CREATED_DISKS_KEY, JSON.stringify(this.createdDiskSlots));
         } catch {
             // Existing disks remain available for this session.
+        }
+    }
+
+    private saveCreatedDiskSlots() {
+        try {
+            window.localStorage.setItem(
+                CREATED_DISKS_KEY,
+                JSON.stringify(this.createdDiskSlots)
+            );
+        } catch {
+            // Keep this session usable if storage is temporarily unavailable.
         }
     }
 
@@ -434,9 +459,12 @@ export default class HardDisk {
             const saved = JSON.parse(
                 window.localStorage.getItem('truth-terminal-profiles-v4') || '{}'
             );
-            profile = Array.isArray(saved.profiles)
-                ? saved.profiles.find((entry: CharacterDiskProfile) => entry.id === profileId)
-                : undefined;
+            const profiles = Array.isArray(saved.profiles) ? saved.profiles : [];
+            const cached = JSON.parse(
+                window.localStorage.getItem('truth-terminal-disk-profiles-v1') || '{}'
+            );
+            profile = profiles.find((entry: CharacterDiskProfile) => entry.id === profileId) ||
+                cached[profileId];
         } catch {
             profile = undefined;
         }
@@ -447,26 +475,32 @@ export default class HardDisk {
 
         if (this.createdProfileIds.has(profileId)) {
             const index = this.disks.findIndex(
-                (disk) => disk.userData.profileId === profileId
+                (disk) => disk?.userData.profileId === profileId
             );
             this.replyDiskCreated(profileId, 'exists', index);
             return;
         }
-        if (this.disks.length >= MAX_DISKS) {
+        let slotOffset = this.createdDiskSlots.findIndex((id) => !id);
+        if (slotOffset < 0) slotOffset = this.createdDiskSlots.length;
+        if (slotOffset >= MAX_DISKS - CASE_COUNT) {
             this.replyDiskCreated(profileId, 'full');
             return;
         }
 
-        const index = this.disks.length;
+        const index = CASE_COUNT + slotOffset;
         this.pendingProfileIds.add(profileId);
         this.createdProfileIds.add(profileId);
+        this.createdDiskSlots[slotOffset] = profileId;
         try {
-            window.localStorage.setItem(
-                CREATED_DISKS_KEY,
-                JSON.stringify(Array.from(this.createdProfileIds))
+            this.saveCreatedDiskSlots();
+            const cache = JSON.parse(
+                window.localStorage.getItem('truth-terminal-disk-profiles-v1') || '{}'
             );
+            cache[profileId] = profile;
+            window.localStorage.setItem('truth-terminal-disk-profiles-v1', JSON.stringify(cache));
         } catch {
             this.createdProfileIds.delete(profileId);
+            this.createdDiskSlots[slotOffset] = null;
             this.pendingProfileIds.delete(profileId);
             this.replyDiskCreated(profileId, 'error');
             return;
@@ -474,6 +508,15 @@ export default class HardDisk {
 
         this.rack.updateMatrixWorld(true);
         this.createDiskSlot(index, profile, this.rack);
+        this.purgedDisks.delete(index);
+        try {
+            window.localStorage.setItem(
+                'truth-terminal-purged-disks-v1',
+                JSON.stringify(Array.from(this.purgedDisks))
+            );
+        } catch {
+            // The new disk is still available for this session.
+        }
         const disk = this.disks[index];
         const homePosition = this.rack.localToWorld(
             this.homeLocalPositions[index].clone()
@@ -562,7 +605,7 @@ export default class HardDisk {
             this.selectDisk(index);
         });
         document.body.appendChild(button);
-        this.hotspots.push(button);
+        this.hotspots[index] = button;
     }
 
     private setHovered(index: number | undefined) {
@@ -583,6 +626,7 @@ export default class HardDisk {
 
     private refreshHoveredDisk() {
         const index = this.hotspots.findIndex((hotspot) => {
+            if (!hotspot) return false;
             const bounds = hotspot.getBoundingClientRect();
             return (
                 this.pointerPosition.x >= bounds.left &&
@@ -597,6 +641,7 @@ export default class HardDisk {
 
     private liftDisk(index: number, raised: boolean) {
         const disk = this.disks[index];
+        if (!disk) return;
         const homeY = disk.userData.homeY as number;
         new TWEEN.Tween(disk.position)
             .to({ y: homeY + (raised ? 78 : 0) }, 230)
@@ -691,9 +736,70 @@ export default class HardDisk {
             this.createCharacterDisk(event.data.profileId);
             return;
         }
+        if (event.data?.type === 'file-disk-to-history') {
+            this.fileDiskToHistory(Number(event.data.diskIndex));
+            return;
+        }
         if (event.data?.type === 'eject-hard-disk') this.eject();
         if (event.data?.type === 'purge-hard-disk') this.purgeDisk();
     };
+
+    private fileDiskToHistory(index: number) {
+        if (!this.inserted || this.ejecting || index !== this.selectedIndex) return;
+        const disk = this.disks[index];
+        if (!disk) return;
+
+        this.ejecting = true;
+        this.monitorScreen.setFocusLocked(true);
+        window.clearTimeout(this.fileOpenTimer);
+        this.fallbackEjectButton.style.display = 'none';
+        this.scene.remove(disk);
+        disk.visible = false;
+
+        const profileId = disk.userData.profileId as string | undefined;
+        if (index >= CASE_COUNT && profileId) {
+            const slotOffset = index - CASE_COUNT;
+            this.createdProfileIds.delete(profileId);
+            this.createdDiskSlots[slotOffset] = null;
+            this.saveCreatedDiskSlots();
+            try {
+                const cache = JSON.parse(
+                    window.localStorage.getItem('truth-terminal-disk-profiles-v1') || '{}'
+                );
+                delete cache[profileId];
+                window.localStorage.setItem(
+                    'truth-terminal-disk-profiles-v1',
+                    JSON.stringify(cache)
+                );
+            } catch {
+                // The record has already been filed by the monitor page.
+            }
+        } else {
+            this.purgedDisks.add(index);
+            try {
+                window.localStorage.setItem(
+                    'truth-terminal-purged-disks-v1',
+                    JSON.stringify(Array.from(this.purgedDisks))
+                );
+            } catch {
+                // The disk remains consumed for this session.
+            }
+        }
+
+        this.hotspots[index]?.remove();
+        delete this.hotspots[index];
+        delete this.disks[index];
+        delete this.outlines[index];
+        delete this.homeLocalPositions[index];
+        delete this.homeLocalRotations[index];
+        this.inserted = false;
+        this.ejecting = false;
+        this.fileOpened = false;
+        this.focusing = false;
+        this.selectedIndex = undefined;
+        this.setHovered(undefined);
+        window.setTimeout(() => this.monitorScreen.setFocusLocked(false), 350);
+    }
 
     private selectDisk(index: number) {
         if (this.purgedDisks.has(index) || this.inserted || this.ejecting) return;
