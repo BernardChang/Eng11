@@ -27,6 +27,9 @@ export default class HardDisk {
     private hint: HTMLDivElement;
     private focusing = false;
     private ejecting = false;
+    private fileOpened = false;
+    private fileOpenTimer = 0;
+    private fallbackEjectButton: HTMLButtonElement;
     private pointerPosition = new THREE.Vector2(-1, -1);
 
     constructor(monitorScreen: MonitorScreen) {
@@ -46,6 +49,13 @@ export default class HardDisk {
         this.hint.style.cssText =
             'position:fixed;display:none;z-index:10003;pointer-events:none;padding:9px 13px;background:#111;color:#fff;border:1px solid #fff;font:12px monospace;letter-spacing:.08em;';
         document.body.appendChild(this.hint);
+        this.fallbackEjectButton = document.createElement('button');
+        this.fallbackEjectButton.type = 'button';
+        this.fallbackEjectButton.textContent = 'EJECT DISK · RETURN TO STORAGE';
+        this.fallbackEjectButton.style.cssText =
+            'position:fixed;display:none;right:20px;bottom:20px;z-index:10005;padding:13px 16px;background:#8f382f;color:#fff;border:1px solid #f0e8d7;font:12px monospace;letter-spacing:.06em;cursor:pointer;';
+        this.fallbackEjectButton.addEventListener('click', () => this.eject());
+        document.body.appendChild(this.fallbackEjectButton);
         window.addEventListener('mousemove', (event) => {
             this.pointerPosition.set(event.clientX, event.clientY);
         });
@@ -288,12 +298,19 @@ export default class HardDisk {
     private onMessage = (event: MessageEvent) => {
         if (
             event.source !== this.monitorScreen.iframe.contentWindow ||
-            event.origin !== window.location.origin ||
-            event.data?.type !== 'eject-hard-disk'
+            event.origin !== window.location.origin
         ) {
             return;
         }
-        this.eject();
+        if (event.data?.type === 'person-file-opened') {
+            if (event.data.diskIndex === this.selectedIndex) {
+                this.fileOpened = true;
+                window.clearTimeout(this.fileOpenTimer);
+                this.fallbackEjectButton.style.display = 'none';
+            }
+            return;
+        }
+        if (event.data?.type === 'eject-hard-disk') this.eject();
     };
 
     private selectDisk(index: number) {
@@ -327,6 +344,15 @@ export default class HardDisk {
 
     private openDiskFile(index: number) {
         this.inserted = true;
+        this.ejecting = false;
+        this.fileOpened = false;
+        this.fallbackEjectButton.style.display = 'none';
+        window.clearTimeout(this.fileOpenTimer);
+        this.fileOpenTimer = window.setTimeout(() => {
+            if (this.inserted && !this.fileOpened) {
+                this.fallbackEjectButton.style.display = 'block';
+            }
+        }, 4500);
         this.focusing = true;
         this.renderer.domElement.style.cursor = 'default';
         const disk = this.disks[index];
@@ -391,12 +417,16 @@ export default class HardDisk {
             disk.visible = true;
             this.inserted = false;
             this.ejecting = false;
+            this.fileOpened = false;
+            this.fallbackEjectButton.style.display = 'none';
             this.focusing = false;
             this.setHovered(undefined);
             this.camera.transition(CameraKey.ARCHIVE, 1050);
         };
 
         this.ejecting = true;
+        window.clearTimeout(this.fileOpenTimer);
+        this.fallbackEjectButton.style.display = 'none';
         this.monitorScreen.closePersonFile();
         this.camera.transition(CameraKey.DESK, 1150);
         disk.visible = true;
