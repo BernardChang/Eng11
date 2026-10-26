@@ -159,7 +159,9 @@ export default class MonitorScreen extends EventEmitter {
         // iframe.src = 'http://localhost:3000/';
         // Render the local character-revision game inside the portfolio's
         // original monitor instead of loading the remote portfolio iframe.
-        iframe.src = '/revision/index.html?v=history-transfer-workflow-5';
+        // Use a new URL whenever the embedded terminal changes so Chrome does
+        // not keep displaying an older cached header/layout after deployment.
+        iframe.src = '/revision/index.html?v=20261026-route-scroll-stable-1';
         iframe.style.width = IFRAME_SIZE.w + 'px';
         iframe.style.height = IFRAME_SIZE.h + 'px';
         iframe.style.opacity = '1';
