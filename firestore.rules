@@ -1,0 +1,44 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function validProfile(profileId) {
+      let profile = request.resource.data;
+      return profile.keys().hasAll([
+          'id', 'assignmentId', 'filedAt', 'name', 'dob', 'job', 'place',
+          'description', 'bio', 'status', 'diskSlot'
+        ])
+        && profile.keys().hasOnly([
+          'id', 'assignmentId', 'filedAt', 'name', 'dob', 'job', 'place',
+          'description', 'bio', 'status', 'diskSlot', 'updatedAt'
+        ])
+        && profile.id == profileId
+        && profile.assignmentId is string
+        && profile.assignmentId.size() <= 80
+        && profile.filedAt is string
+        && profile.name is string
+        && profile.name.size() > 0
+        && profile.name.size() <= 60
+        && profile.dob is string
+        && profile.dob.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && profile.job is string
+        && profile.job.size() > 0
+        && profile.job.size() <= 70
+        && profile.place is string
+        && profile.place.size() > 0
+        && profile.place.size() <= 70
+        && profile.description is string
+        && profile.description.size() <= 350
+        && profile.bio is string
+        && profile.bio.size() <= 1200
+        && profile.status in ['history', 'disk', 'purged']
+        && (profile.status != 'disk' || (profile.diskSlot is int && profile.diskSlot >= 10 && profile.diskSlot <= 12));
+    }
+
+    match /profiles/{profileId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && validProfile(profileId);
+      allow delete: if false;
+    }
+  }
+}

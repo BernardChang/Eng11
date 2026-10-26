@@ -463,6 +463,30 @@ export default class HardDisk {
         }
     }
 
+    private refreshCreatedCharacterDisks() {
+        if (this.inserted || this.focusing || this.ejecting) {
+            window.setTimeout(() => {
+                if (!this.inserted && !this.focusing && !this.ejecting) {
+                    this.refreshCreatedCharacterDisks();
+                }
+            }, 900);
+            return;
+        }
+
+        for (let index = CASE_COUNT; index < MAX_DISKS; index++) {
+            this.disks[index]?.parent?.remove(this.disks[index]);
+            this.hotspots[index]?.remove();
+            this.outlines[index]?.parent?.remove(this.outlines[index]);
+            delete this.disks[index];
+            delete this.hotspots[index];
+            delete this.outlines[index];
+            delete this.homeLocalPositions[index];
+        }
+        this.createdProfileIds.clear();
+        this.createdDiskSlots = [];
+        this.loadCreatedCharacterDisks();
+    }
+
     private saveCreatedDiskSlots() {
         try {
             window.localStorage.setItem(
@@ -768,12 +792,16 @@ export default class HardDisk {
             this.createCharacterDisk(event.data.profileId);
             return;
         }
+        if (event.data?.type === 'cloud-character-disks-updated') {
+            this.refreshCreatedCharacterDisks();
+            return;
+        }
         if (event.data?.type === 'file-disk-to-history') {
             this.fileDiskToHistory(Number(event.data.diskIndex));
             return;
         }
         if (event.data?.type === 'eject-hard-disk') this.eject();
-        if (event.data?.type === 'purge-hard-disk') this.purgeDisk();
+        if (event.data?.type === 'purge-hard-disk') this.purgeDisk(event.data.profileId);
     };
 
     private fileDiskToHistory(index: number) {
@@ -924,7 +952,7 @@ export default class HardDisk {
             .start();
     }
 
-    private purgeDisk() {
+    private purgeDisk(profileId?: unknown) {
         if (!this.inserted || this.ejecting || this.selectedIndex === undefined) return;
         const index = this.selectedIndex;
         const disk = this.disks[index];
@@ -953,6 +981,30 @@ export default class HardDisk {
             disk.visible = false;
             disk.scale.setScalar(1);
             this.purgedDisks.add(index);
+            if (index >= CASE_COUNT) {
+                const slotOffset = index - CASE_COUNT;
+                const activeProfileId = this.disks[index]?.userData.profileId;
+                if (
+                    typeof profileId === 'string' &&
+                    (!activeProfileId || activeProfileId === profileId)
+                ) {
+                    this.createdProfileIds.delete(profileId);
+                    this.createdDiskSlots[slotOffset] = null;
+                    this.saveCreatedDiskSlots();
+                    try {
+                        const cache = JSON.parse(
+                            window.localStorage.getItem('truth-terminal-disk-profiles-v1') || '{}'
+                        );
+                        delete cache[profileId];
+                        window.localStorage.setItem(
+                            'truth-terminal-disk-profiles-v1',
+                            JSON.stringify(cache)
+                        );
+                    } catch {
+                        // The record remains in cloud storage with its purged status.
+                    }
+                }
+            }
             try {
                 window.localStorage.setItem(
                     'truth-terminal-purged-disks-v1',
