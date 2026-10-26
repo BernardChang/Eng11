@@ -30,6 +30,10 @@ export default class HardDisk {
     private fileOpened = false;
     private fileOpenTimer = 0;
     private fallbackEjectButton: HTMLButtonElement;
+    private readonly purgedDisks = new Set<number>();
+    private purgeHole: THREE.Group;
+    private readonly purgeHolePosition = new THREE.Vector3(-1050, -410, 850);
+    private purging = false;
     private pointerPosition = new THREE.Vector2(-1, -1);
 
     constructor(monitorScreen: MonitorScreen) {
@@ -39,10 +43,32 @@ export default class HardDisk {
         this.scene = this.application.scene;
         this.renderer = this.application.renderer.instance;
         this.homePosition = new THREE.Vector3(-1950, -500, 650);
+        try {
+            const stored = JSON.parse(
+                window.localStorage.getItem('truth-terminal-purged-disks-v1') || '[]'
+            );
+            if (Array.isArray(stored)) {
+                stored.forEach((index) => {
+                    if (Number.isInteger(index) && index >= 0 && index < CASE_COUNT) {
+                        this.purgedDisks.add(index);
+                    }
+                });
+            }
+        } catch {
+            // Ignore malformed local game state and start with a usable rack.
+        }
 
         this.rack = this.createRack();
         this.rack.position.copy(this.homePosition);
         this.scene.add(this.rack);
+        this.purgeHole = this.createPurgeHole();
+        this.scene.add(this.purgeHole);
+        this.disks.forEach((disk, index) => {
+            if (this.purgedDisks.has(index)) {
+                disk.visible = false;
+                this.hotspots[index].style.display = 'none';
+            }
+        });
 
         this.hint = document.createElement('div');
         this.hint.textContent = 'SELECT A PERSONNEL DISK';
@@ -60,6 +86,44 @@ export default class HardDisk {
             this.pointerPosition.set(event.clientX, event.clientY);
         });
         window.addEventListener('message', this.onMessage);
+    }
+
+    private createPurgeHole(): THREE.Group {
+        const hole = new THREE.Group();
+        hole.name = 'deskPurgeHole';
+        hole.position.copy(this.purgeHolePosition);
+        const rimMaterial = new THREE.MeshBasicMaterial({ color: 0x20201e });
+        const throatMaterial = new THREE.MeshBasicMaterial({
+            color: 0x050505,
+            side: THREE.DoubleSide,
+        });
+        const base = new THREE.Mesh(
+            new THREE.CylinderBufferGeometry(325, 340, 28, 48),
+            rimMaterial
+        );
+        base.position.y = -4;
+        hole.add(base);
+        const throat = new THREE.Mesh(
+            new THREE.CylinderBufferGeometry(285, 190, 240, 48, 1, true),
+            throatMaterial
+        );
+        throat.position.y = -130;
+        hole.add(throat);
+        const bottom = new THREE.Mesh(
+            new THREE.CircleBufferGeometry(190, 48),
+            new THREE.MeshBasicMaterial({ color: 0x000000 })
+        );
+        bottom.rotation.x = -Math.PI / 2;
+        bottom.position.y = -250;
+        hole.add(bottom);
+        const lip = new THREE.Mesh(
+            new THREE.TorusBufferGeometry(280, 22, 12, 48),
+            rimMaterial
+        );
+        lip.rotation.x = Math.PI / 2;
+        lip.position.y = 12;
+        hole.add(lip);
+        return hole;
     }
 
     private createRack(): THREE.Group {
@@ -311,9 +375,11 @@ export default class HardDisk {
             return;
         }
         if (event.data?.type === 'eject-hard-disk') this.eject();
+        if (event.data?.type === 'purge-hard-disk') this.purgeDisk();
     };
 
     private selectDisk(index: number) {
+        if (this.purgedDisks.has(index) || this.inserted || this.ejecting) return;
         if (
             this.camera.currentKeyframe === CameraKey.ARCHIVE &&
             this.selectedIndex === index
@@ -391,6 +457,102 @@ export default class HardDisk {
             .to({ x: Math.PI / 2, y: 0 }, 520)
             .easing(TWEEN.Easing.Cubic.InOut)
             .start();
+    }
+
+    private purgeDisk() {
+        if (!this.inserted || this.ejecting || this.selectedIndex === undefined) return;
+        const index = this.selectedIndex;
+        const disk = this.disks[index];
+        this.ejecting = true;
+        this.purging = true;
+        this.fileOpened = false;
+        window.clearTimeout(this.fileOpenTimer);
+        this.fallbackEjectButton.style.display = 'none';
+        this.monitorScreen.closePersonFile();
+        this.camera.transition(CameraKey.DESK, 1150);
+        disk.visible = true;
+        disk.position.copy(this.slotPosition);
+        disk.rotation.set(Math.PI / 2, 0, 0);
+        disk.scale.setScalar(1);
+
+        let complete = false;
+        let activeTween: { stop: () => unknown } | undefined;
+        let safetyTimer = 0;
+        const finishPurge = () => {
+            if (complete) return;
+            complete = true;
+            window.clearTimeout(safetyTimer);
+            activeTween?.stop();
+            this.scene.remove(disk);
+            disk.visible = false;
+            disk.scale.setScalar(1);
+            this.purgedDisks.add(index);
+            try {
+                window.localStorage.setItem(
+                    'truth-terminal-purged-disks-v1',
+                    JSON.stringify(Array.from(this.purgedDisks))
+                );
+            } catch {
+                // Keep the animation complete even when browser storage is unavailable.
+            }
+            this.hotspots[index].style.display = 'none';
+            this.inserted = false;
+            this.ejecting = false;
+            this.purging = false;
+            this.focusing = false;
+            this.selectedIndex = undefined;
+            this.setHovered(undefined);
+            this.camera.transition(CameraKey.ARCHIVE, 1050);
+        };
+
+        const launch = new TWEEN.Tween(disk.position)
+            .to({ x: this.slotPosition.x, y: this.slotPosition.y, z: 960 }, 600)
+            .easing(TWEEN.Easing.Quadratic.Out)
+            .onComplete(() => {
+                const start = disk.position.clone();
+                const end = this.purgeHolePosition.clone().add(new THREE.Vector3(0, 34, 0));
+                const flightTime = 1.25;
+                const gravity = 1500;
+                const initialVerticalVelocity =
+                    (end.y - start.y + 0.5 * gravity * flightTime * flightTime) /
+                    flightTime;
+                const flight = { progress: 0 };
+                const flightTween = new TWEEN.Tween(flight)
+                    .to({ progress: 1 }, flightTime * 1000)
+                    .easing(TWEEN.Easing.Linear.None)
+                    .onUpdate(() => {
+                        const t = flight.progress * flightTime;
+                        disk.position.set(
+                            THREE.MathUtils.lerp(start.x, end.x, flight.progress),
+                            start.y + initialVerticalVelocity * t - 0.5 * gravity * t * t,
+                            THREE.MathUtils.lerp(start.z, end.z, flight.progress)
+                        );
+                        disk.rotation.set(
+                            Math.PI / 2 + flight.progress * Math.PI * 3,
+                            flight.progress * Math.PI * 4,
+                            flight.progress * Math.PI * 2
+                        );
+                    })
+                    .onComplete(() => {
+                        const sink = { progress: 0 };
+                        const sinkTween = new TWEEN.Tween(sink)
+                            .to({ progress: 1 }, 520)
+                            .easing(TWEEN.Easing.Quadratic.In)
+                            .onUpdate(() => {
+                                disk.position.y = end.y - sink.progress * 300;
+                                disk.scale.setScalar(1 - sink.progress * 0.82);
+                                disk.rotation.z += 0.035;
+                            })
+                            .onComplete(finishPurge);
+                        activeTween = sinkTween;
+                        sinkTween.start();
+                    });
+                activeTween = flightTween;
+                flightTween.start();
+            });
+        activeTween = launch;
+        launch.start();
+        safetyTimer = window.setTimeout(finishPurge, 3200);
     }
 
     private eject() {
