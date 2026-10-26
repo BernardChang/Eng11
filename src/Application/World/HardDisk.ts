@@ -18,6 +18,7 @@ export default class HardDisk {
     disks: THREE.Group[] = [];
     outlines: THREE.LineSegments[] = [];
     homeLocalPositions: THREE.Vector3[] = [];
+    homeLocalRotations: THREE.Euler[] = [];
     homePosition: THREE.Vector3;
     readonly slotPosition = new THREE.Vector3(500, -220, 500);
     inserted = false;
@@ -55,49 +56,52 @@ export default class HardDisk {
         rack.name = 'personnelDiskRack';
 
         const orange = new THREE.MeshBasicMaterial({ color: 0xb95a21 });
-        const orangeLight = new THREE.MeshBasicMaterial({ color: 0xd17432 });
         const floppyModel = this.application.resources.items.gltfModel
             .floppyDiskModel.scene;
 
-        const addBox = (
-            name: string,
-            size: [number, number, number],
-            position: [number, number, number],
-            material: THREE.Material,
-            parent: THREE.Group = rack
-        ) => {
-            const mesh = new THREE.Mesh(
-                new THREE.BoxBufferGeometry(...size),
-                material
-            );
-            mesh.name = name;
-            mesh.position.set(...position);
-            mesh.userData.hardDiskTarget = true;
-            parent.add(mesh);
-            return mesh;
-        };
-
-        // Orange molded holder: a shallow tray with two raised end supports.
-        addBox('diskTrayBase', [2250, 58, 250], [0, 29, 0], orange);
-        addBox('diskTrayFrontLip', [2250, 76, 32], [0, 75, 123], orangeLight);
-        addBox('diskTrayBackLip', [2250, 104, 32], [0, 89, -123], orange);
-        addBox('diskTrayLeftSupport', [48, 175, 260], [-1080, 115, 0], orangeLight);
-        addBox('diskTrayRightSupport', [48, 175, 260], [1080, 115, 0], orangeLight);
+        // Rotary archive stand inspired by the reference: circular orange base,
+        // dark central spindle, and cards fanned around the shared pivot.
+        const base = new THREE.Mesh(
+            new THREE.CylinderBufferGeometry(560, 560, 56, 48),
+            orange
+        );
+        base.name = 'diskCarouselBase';
+        base.position.y = 28;
+        rack.add(base);
+        const spindle = new THREE.Mesh(
+            new THREE.CylinderBufferGeometry(25, 25, 390, 24),
+            new THREE.MeshBasicMaterial({ color: 0x282722 })
+        );
+        spindle.name = 'diskCarouselSpindle';
+        spindle.position.y = 235;
+        rack.add(spindle);
+        const cap = new THREE.Mesh(
+            new THREE.CylinderBufferGeometry(92, 92, 28, 32),
+            new THREE.MeshBasicMaterial({ color: 0x282722 })
+        );
+        cap.name = 'diskCarouselCap';
+        cap.position.y = 444;
+        rack.add(cap);
 
         for (let index = 0; index < CASE_COUNT; index++) {
-            const x = (index - (CASE_COUNT - 1) / 2) * 350;
+            const angle = THREE.MathUtils.degToRad(-60 + index * 24);
             const caseGroup = new THREE.Group();
             caseGroup.name = `personnelDisk${index + 1}`;
             const diskHomeY = 245;
-            caseGroup.position.set(x, diskHomeY, -20 + index * 4);
+            caseGroup.position.set(
+                Math.cos(angle) * 170,
+                diskHomeY,
+                -Math.sin(angle) * 170
+            );
+            caseGroup.rotation.y = angle;
             caseGroup.userData.homeY = diskHomeY;
             this.homeLocalPositions.push(caseGroup.position.clone());
+            this.homeLocalRotations.push(caseGroup.rotation.clone());
             rack.add(caseGroup);
             this.disks.push(caseGroup);
 
             const model = floppyModel.clone(true);
             model.name = `floppyModel${index + 1}`;
-            model.rotation.set(0, 0, 0);
             model.traverse((child) => {
                 if (child instanceof THREE.Mesh) {
                     child.castShadow = true;
@@ -142,30 +146,6 @@ export default class HardDisk {
             this.outlines.push(outline);
 
         }
-
-        // Front-facing rack label makes the prop legible from the desk view.
-        const badge = document.createElement('canvas');
-        badge.width = 640;
-        badge.height = 96;
-        const badgeContext = badge.getContext('2d');
-        if (badgeContext) {
-            badgeContext.fillStyle = '#e7e0ce';
-            badgeContext.fillRect(0, 0, badge.width, badge.height);
-            badgeContext.fillStyle = '#342f28';
-            badgeContext.font = 'bold 29px monospace';
-            badgeContext.textAlign = 'center';
-            badgeContext.fillText('SELECT A FLOPPY DISK', 320, 59);
-        }
-        const badgeTexture = new THREE.CanvasTexture(badge);
-        badgeTexture.encoding = THREE.sRGBEncoding;
-        const badgeMesh = new THREE.Mesh(
-            new THREE.PlaneBufferGeometry(620, 66),
-            new THREE.MeshBasicMaterial({ map: badgeTexture })
-        );
-        badgeMesh.name = 'diskRackLabel';
-        badgeMesh.position.set(0, 75, 151);
-        badgeMesh.userData.hardDiskTarget = true;
-        rack.add(badgeMesh);
 
         this.disks.forEach((disk, index) => this.createDiskHotspot(index));
         return rack;
@@ -380,7 +360,7 @@ export default class HardDisk {
             })
             .start();
         new TWEEN.Tween(disk.rotation)
-            .to({ x: Math.PI / 2 }, 520)
+            .to({ x: Math.PI / 2, y: 0 }, 520)
             .easing(TWEEN.Easing.Cubic.InOut)
             .start();
     }
@@ -414,14 +394,14 @@ export default class HardDisk {
                     .onComplete(() => {
                         this.rack.attach(disk);
                         disk.position.copy(this.homeLocalPositions[index]);
-                        disk.rotation.set(0, 0, 0);
+                        disk.rotation.copy(this.homeLocalRotations[index]);
                         this.inserted = false;
                         this.focusing = false;
                         this.camera.transition(CameraKey.ARCHIVE, 1050);
                     })
                     .start();
                 new TWEEN.Tween(disk.rotation)
-                    .to({ x: 0 }, 520)
+                    .to({ x: 0, y: this.homeLocalRotations[index].y }, 520)
                     .easing(TWEEN.Easing.Cubic.InOut)
                     .start();
             })
