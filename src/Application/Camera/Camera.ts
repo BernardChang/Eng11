@@ -88,6 +88,7 @@ export default class Camera extends EventEmitter {
         if (this.currentKeyframe === key) return;
 
         if (key === CameraKey.MONITOR) this.updateMonitorFraming();
+        if (key === CameraKey.ARCHIVE) this.updateArchiveFraming();
 
         if (this.targetKeyframe) TWEEN.removeAll();
 
@@ -149,6 +150,7 @@ export default class Camera extends EventEmitter {
         this.instance.aspect = this.sizes.width / this.sizes.height;
         this.instance.updateProjectionMatrix();
         this.updateMonitorFraming();
+        this.updateArchiveFraming();
     }
 
     updateMonitorFraming() {
@@ -160,6 +162,21 @@ export default class Camera extends EventEmitter {
         this.keyframes.monitor.position.z = 255 + distance;
         if (this.currentKeyframe === CameraKey.MONITOR) {
             this.position.z = this.keyframes.monitor.position.z;
+        }
+    }
+
+    updateArchiveFraming() {
+        const aspect = this.sizes.width / this.sizes.height;
+        const scale = Math.max(1, 1.5 / aspect);
+        const target = new THREE.Vector3(-1950, -210, 650);
+        const basePosition = new THREE.Vector3(-950, 380, 3850);
+        const position = target
+            .clone()
+            .add(basePosition.sub(target).multiplyScalar(scale));
+        this.keyframes.archive.focalPoint.copy(target);
+        this.keyframes.archive.position.copy(position);
+        if (this.currentKeyframe === CameraKey.ARCHIVE) {
+            this.position.copy(position);
         }
     }
 

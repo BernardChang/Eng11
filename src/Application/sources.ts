@@ -10,6 +10,11 @@ const sources: Resource[] = [
         path: 'models/Computer/baked_computer.jpg',
     },
     {
+        name: 'floppyDiskModel',
+        type: 'gltfModel',
+        path: 'models/Disks/floppy.glb',
+    },
+    {
         name: 'environmentModel',
         type: 'gltfModel',
         path: 'models/World/environment.glb',

@@ -20,7 +20,7 @@ export default class HardDisk {
     homeLocalPositions: THREE.Vector3[] = [];
     homePosition: THREE.Vector3;
     driveSlot: THREE.Group;
-    readonly slotPosition = new THREE.Vector3(350, -220, 690);
+    readonly slotPosition = new THREE.Vector3(500, -220, 500);
     inserted = false;
     selectedIndex: number | undefined;
     private hoveredIndex: number | undefined;
@@ -34,7 +34,7 @@ export default class HardDisk {
         this.monitorScreen = monitorScreen;
         this.scene = this.application.scene;
         this.renderer = this.application.renderer.instance;
-        this.homePosition = new THREE.Vector3(-1380, -500, 650);
+        this.homePosition = new THREE.Vector3(-1950, -500, 650);
 
         this.rack = this.createRack();
         this.rack.position.copy(this.homePosition);
@@ -59,8 +59,8 @@ export default class HardDisk {
 
         const orange = new THREE.MeshBasicMaterial({ color: 0xb95a21 });
         const orangeLight = new THREE.MeshBasicMaterial({ color: 0xd17432 });
-        const darkCase = new THREE.MeshBasicMaterial({ color: 0x171817 });
-        const edge = new THREE.LineBasicMaterial({ color: 0x4e4b43 });
+        const floppyModel = this.application.resources.items.gltfModel
+            .floppyDiskModel.scene;
 
         const addBox = (
             name: string,
@@ -81,38 +81,56 @@ export default class HardDisk {
         };
 
         // Orange molded holder: a shallow tray with two raised end supports.
-        addBox('diskTrayBase', [850, 58, 270], [0, 29, 0], orange);
-        addBox('diskTrayFrontLip', [850, 76, 32], [0, 75, 133], orangeLight);
-        addBox('diskTrayBackLip', [850, 104, 32], [0, 89, -133], orange);
-        addBox('diskTrayLeftSupport', [48, 175, 280], [-401, 115, 0], orangeLight);
-        addBox('diskTrayRightSupport', [48, 175, 280], [401, 115, 0], orangeLight);
+        addBox('diskTrayBase', [2250, 58, 250], [0, 29, 0], orange);
+        addBox('diskTrayFrontLip', [2250, 76, 32], [0, 75, 123], orangeLight);
+        addBox('diskTrayBackLip', [2250, 104, 32], [0, 89, -123], orange);
+        addBox('diskTrayLeftSupport', [48, 175, 260], [-1080, 115, 0], orangeLight);
+        addBox('diskTrayRightSupport', [48, 175, 260], [1080, 115, 0], orangeLight);
 
         for (let index = 0; index < CASE_COUNT; index++) {
-            const x = (index - (CASE_COUNT - 1) / 2) * 112;
+            const x = (index - (CASE_COUNT - 1) / 2) * 350;
             const caseGroup = new THREE.Group();
             caseGroup.name = `personnelDisk${index + 1}`;
-            const diskHomeY = 112 + index % 2 * 3;
+            const diskHomeY = 245;
             caseGroup.position.set(x, diskHomeY, -20 + index * 4);
             caseGroup.userData.homeY = diskHomeY;
             this.homeLocalPositions.push(caseGroup.position.clone());
             rack.add(caseGroup);
             this.disks.push(caseGroup);
 
-            const body = addBox(
-                `diskCase${index + 1}`,
-                [102, 370, 55],
-                [0, 185, 0],
-                darkCase,
-                caseGroup
-            );
-            caseGroup.add(
-                new THREE.LineSegments(
-                    new THREE.EdgesGeometry(body.geometry),
-                    edge
-                )
-            );
+            const model = floppyModel.clone(true);
+            model.name = `floppyModel${index + 1}`;
+            model.traverse((child) => {
+                if (child instanceof THREE.Mesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    const materials = Array.isArray(child.material)
+                        ? child.material
+                        : [child.material];
+                    const palette: Record<string, number> = {
+                        Plastic: 0x1d3159,
+                        Metal: 0xb9b8b1,
+                        Disc: 0x252a32,
+                        Label: 0xffffff,
+                    };
+                    const converted = materials.map(
+                        (material) =>
+                            new THREE.MeshBasicMaterial({
+                                color: palette[material.name] || 0xe7e0ce,
+                                map: material.map || null,
+                                side: THREE.DoubleSide,
+                            })
+                    );
+                    child.material = Array.isArray(child.material)
+                        ? converted
+                        : converted[0];
+                }
+            });
+            caseGroup.add(model);
             const outline = new THREE.LineSegments(
-                new THREE.EdgesGeometry(body.geometry),
+                new THREE.EdgesGeometry(
+                    new THREE.BoxBufferGeometry(342, 378, 30)
+                ),
                 new THREE.LineBasicMaterial({
                     color: 0xffffff,
                     transparent: true,
@@ -120,75 +138,11 @@ export default class HardDisk {
                     depthTest: false,
                 })
             );
-            outline.position.copy(body.position);
             outline.visible = false;
             outline.renderOrder = 10;
             caseGroup.add(outline);
             this.outlines.push(outline);
 
-            const labelCanvas = document.createElement('canvas');
-            labelCanvas.width = 256;
-            labelCanvas.height = 400;
-            const context = labelCanvas.getContext('2d');
-            if (context) {
-                context.fillStyle = '#e7e0ce';
-                context.fillRect(0, 0, 256, 400);
-                context.strokeStyle = '#b5ab96';
-                context.lineWidth = 8;
-                context.strokeRect(9, 9, 238, 382);
-                context.fillStyle = '#8d3c32';
-                context.font = 'bold 19px monospace';
-                context.textAlign = 'center';
-                context.fillText('MINISTRY OF TRUTH', 128, 49);
-                context.fillStyle = '#39372f';
-                context.font = 'bold 27px monospace';
-                context.fillText('PERSON FILE', 128, 101);
-                context.font = 'bold 38px Georgia';
-                const fallbackNames = [
-                    'OGILVY',
-                    'MARA VENN',
-                    'TOMAS WREN',
-                    'ELIA NORTH',
-                    'PAVEL SORN',
-                    'IRIS BELL',
-                ];
-                let savedName: string | undefined;
-                try {
-                    const saved = JSON.parse(
-                        localStorage.getItem('truth-terminal-profiles-v4') || '{}'
-                    );
-                    savedName = saved.profiles?.[index]?.name;
-                } catch {}
-                context.font = 'bold 30px Georgia';
-                context.fillText(
-                    (savedName || fallbackNames[index]).toUpperCase().slice(0, 14),
-                    128,
-                    180,
-                    220
-                );
-                context.font = '21px monospace';
-                context.fillText(`MTR-0041-${index + 1}`, 128, 223);
-                context.fillStyle = '#8c8577';
-                context.fillRect(47, 265, 162, 5);
-                for (let bar = 0; bar < 14; bar++) {
-                    const width = bar % 3 === 0 ? 6 : 3;
-                    context.fillStyle = '#39372f';
-                    context.fillRect(58 + bar * 10, 296, width, 52);
-                }
-                context.fillStyle = '#625e54';
-                context.font = '15px monospace';
-                context.fillText('AUTHORIZED COPY', 128, 375);
-            }
-            const labelTexture = new THREE.CanvasTexture(labelCanvas);
-            labelTexture.encoding = THREE.sRGBEncoding;
-            const label = new THREE.Mesh(
-                new THREE.PlaneBufferGeometry(78, 145),
-                new THREE.MeshBasicMaterial({ map: labelTexture })
-            );
-            label.name = `diskLabel${index + 1}`;
-            label.position.set(0, 201, 28.5);
-            label.userData.hardDiskTarget = true;
-            caseGroup.add(label);
         }
 
         // Front-facing rack label makes the prop legible from the desk view.
@@ -202,12 +156,12 @@ export default class HardDisk {
             badgeContext.fillStyle = '#342f28';
             badgeContext.font = 'bold 29px monospace';
             badgeContext.textAlign = 'center';
-            badgeContext.fillText('SELECT A PERSONNEL DISK', 320, 59);
+            badgeContext.fillText('SELECT A FLOPPY DISK', 320, 59);
         }
         const badgeTexture = new THREE.CanvasTexture(badge);
         badgeTexture.encoding = THREE.sRGBEncoding;
         const badgeMesh = new THREE.Mesh(
-            new THREE.PlaneBufferGeometry(440, 66),
+            new THREE.PlaneBufferGeometry(620, 66),
             new THREE.MeshBasicMaterial({ map: badgeTexture })
         );
         badgeMesh.name = 'diskRackLabel';
@@ -223,26 +177,26 @@ export default class HardDisk {
     private createDriveSlot(): THREE.Group {
         const slot = new THREE.Group();
         slot.name = 'personnelDiskDriveSlot';
-        slot.position.set(350, -220, 746);
+        slot.position.set(500, -220, 746);
         const frame = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(430, 118, 24),
+            new THREE.BoxBufferGeometry(390, 42, 24),
             new THREE.MeshBasicMaterial({ color: 0x4a4841 })
         );
         const opening = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(390, 74, 8),
+            new THREE.BoxBufferGeometry(350, 20, 8),
             new THREE.MeshBasicMaterial({ color: 0x080908 })
         );
         opening.position.z = 15;
         const inner = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(366, 8, 3),
+            new THREE.BoxBufferGeometry(330, 3, 3),
             new THREE.MeshBasicMaterial({ color: 0x8b897e })
         );
-        inner.position.set(0, 22, 20);
+        inner.position.set(0, 7, 20);
         const statusLight = new THREE.Mesh(
             new THREE.BoxBufferGeometry(12, 12, 4),
             new THREE.MeshBasicMaterial({ color: 0x9d332b })
         );
-        statusLight.position.set(198, 0, 17);
+        statusLight.position.set(183, 0, 17);
         slot.add(frame, opening, inner, statusLight);
         return slot;
     }
@@ -430,11 +384,11 @@ export default class HardDisk {
         this.camera.transition(CameraKey.DESK, 1350);
 
         new TWEEN.Tween(disk.position)
-            .to({ x: start.x, y: start.y + 145, z: start.z + 140 }, 360)
+            .to({ x: start.x, y: start.y + 110, z: start.z + 300 }, 460)
             .easing(TWEEN.Easing.Cubic.Out)
             .onComplete(() => {
                 new TWEEN.Tween(disk.position)
-                    .to({ x: this.slotPosition.x, y: this.slotPosition.y, z: 810 }, 940)
+                    .to({ x: this.slotPosition.x, y: this.slotPosition.y, z: 960 }, 900)
                     .easing(TWEEN.Easing.Cubic.InOut)
                     .onComplete(() => {
                         new TWEEN.Tween(disk.position)
@@ -453,11 +407,11 @@ export default class HardDisk {
                             .start();
                     })
                     .start();
-                new TWEEN.Tween(disk.rotation)
-                    .to({ z: -Math.PI / 2 }, 650)
-                    .easing(TWEEN.Easing.Cubic.InOut)
-                    .start();
             })
+            .start();
+        new TWEEN.Tween(disk.rotation)
+            .to({ x: Math.PI / 2 }, 520)
+            .easing(TWEEN.Easing.Cubic.InOut)
             .start();
     }
 
@@ -472,9 +426,9 @@ export default class HardDisk {
         this.camera.transition(CameraKey.DESK, 1150);
         disk.visible = true;
         disk.position.copy(this.slotPosition);
-        disk.rotation.set(0, 0, -Math.PI / 2);
+        disk.rotation.set(Math.PI / 2, 0, 0);
         new TWEEN.Tween(disk.position)
-            .to({ x: this.slotPosition.x, y: this.slotPosition.y, z: 810 }, 260)
+            .to({ x: this.slotPosition.x, y: this.slotPosition.y, z: 960 }, 650)
             .easing(TWEEN.Easing.Quadratic.Out)
             .onComplete(() => {
                 new TWEEN.Tween(disk.position)
@@ -488,18 +442,17 @@ export default class HardDisk {
                     )
                     .easing(TWEEN.Easing.Cubic.InOut)
                     .onComplete(() => {
-                        new TWEEN.Tween(disk.rotation)
-                            .to({ z: 0 }, 500)
-                            .onComplete(() => {
-                                this.rack.attach(disk);
-                                disk.position.copy(this.homeLocalPositions[index]);
-                                disk.rotation.set(0, 0, 0);
-                            this.inserted = false;
-                            this.focusing = false;
-                                this.camera.transition(CameraKey.ARCHIVE, 1050);
-                            })
-                            .start();
+                        this.rack.attach(disk);
+                        disk.position.copy(this.homeLocalPositions[index]);
+                        disk.rotation.set(0, 0, 0);
+                        this.inserted = false;
+                        this.focusing = false;
+                        this.camera.transition(CameraKey.ARCHIVE, 1050);
                     })
+                    .start();
+                new TWEEN.Tween(disk.rotation)
+                    .to({ x: 0 }, 520)
+                    .easing(TWEEN.Easing.Cubic.InOut)
                     .start();
             })
             .start();
