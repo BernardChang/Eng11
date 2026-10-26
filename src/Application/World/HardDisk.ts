@@ -32,9 +32,8 @@ export default class HardDisk {
     private fallbackEjectButton: HTMLButtonElement;
     private readonly purgedDisks = new Set<number>();
     private purgeHole: THREE.Group;
-    // Put the chute in the open desk area, just left of the keyboard, so it
-    // stays in frame while the monitor pulls back to the desk view.
-    private readonly purgeHolePosition = new THREE.Vector3(-1050, -410, 850);
+    // Right side of the computer, on the desk surface.
+    private readonly purgeHolePosition = new THREE.Vector3(1050, -410, 850);
     private purging = false;
     private pointerPosition = new THREE.Vector2(-1, -1);
 
@@ -92,85 +91,19 @@ export default class HardDisk {
 
     private createPurgeHole(): THREE.Group {
         const hole = new THREE.Group();
-        hole.name = 'deskPurgeHole';
+        hole.name = 'blackCircle';
         hole.position.copy(this.purgeHolePosition);
-        const rimMaterial = new THREE.MeshBasicMaterial({ color: 0x20201e });
-        const warningMaterial = new THREE.MeshBasicMaterial({ color: 0x963e37 });
-        const throatMaterial = new THREE.MeshBasicMaterial({
-            color: 0x050505,
-            side: THREE.DoubleSide,
-        });
-        const base = new THREE.Mesh(
-            new THREE.CylinderBufferGeometry(325, 340, 28, 48, 1, true),
-            rimMaterial
-        );
-        base.position.y = -4;
-        hole.add(base);
-        const topRing = new THREE.Mesh(
-            new THREE.RingBufferGeometry(285, 340, 48),
-            rimMaterial
-        );
-        topRing.rotation.x = -Math.PI / 2;
-        topRing.position.y = 10;
-        hole.add(topRing);
-        const throat = new THREE.Mesh(
-            new THREE.CylinderBufferGeometry(285, 190, 240, 48, 1, true),
-            throatMaterial
-        );
-        throat.position.y = -130;
-        hole.add(throat);
-        const bottom = new THREE.Mesh(
-            new THREE.CircleBufferGeometry(190, 48),
-            new THREE.MeshBasicMaterial({ color: 0x000000 })
-        );
-        bottom.rotation.x = -Math.PI / 2;
-        bottom.position.y = -250;
-        hole.add(bottom);
-        const lip = new THREE.Mesh(
-            new THREE.TorusBufferGeometry(280, 22, 12, 48),
-            rimMaterial
-        );
-        lip.rotation.x = Math.PI / 2;
-        lip.position.y = 12;
-        hole.add(lip);
-        const warningRing = new THREE.Mesh(
-            new THREE.TorusBufferGeometry(365, 12, 10, 48),
-            warningMaterial
-        );
-        warningRing.rotation.x = Math.PI / 2;
-        warningRing.position.y = 4;
-        hole.add(warningRing);
-
-        // A small printed desk marker makes the opening legible from the
-        // normal desk camera before the player starts the purge sequence.
-        const markerCanvas = document.createElement('canvas');
-        markerCanvas.width = 512;
-        markerCanvas.height = 128;
-        const markerContext = markerCanvas.getContext('2d');
-        if (markerContext) {
-            markerContext.fillStyle = '#252622';
-            markerContext.fillRect(0, 0, markerCanvas.width, markerCanvas.height);
-            markerContext.strokeStyle = '#963e37';
-            markerContext.lineWidth = 8;
-            markerContext.strokeRect(5, 5, markerCanvas.width - 10, markerCanvas.height - 10);
-            markerContext.fillStyle = '#f4f1e9';
-            markerContext.font = 'bold 38px monospace';
-            markerContext.textAlign = 'center';
-            markerContext.textBaseline = 'middle';
-            markerContext.fillText('PURGE CHUTE', markerCanvas.width / 2, markerCanvas.height / 2);
-        }
-        const marker = new THREE.Mesh(
-            new THREE.PlaneBufferGeometry(560, 140),
+        const circle = new THREE.Mesh(
+            new THREE.CircleBufferGeometry(365, 64),
             new THREE.MeshBasicMaterial({
-                map: new THREE.CanvasTexture(markerCanvas),
+                color: 0x000000,
                 side: THREE.DoubleSide,
-                depthTest: false,
             })
         );
-        marker.rotation.x = -Math.PI / 2;
-        marker.position.set(0, 8, 480);
-        marker.renderOrder = 5;
-        hole.add(marker);
+        circle.name = 'blackCircleSurface';
+        circle.rotation.x = -Math.PI / 2;
+        circle.position.y = 8;
+        hole.add(circle);
         return hole;
     }
 
