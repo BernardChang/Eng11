@@ -63,7 +63,12 @@ export default class Camera extends EventEmitter {
         };
         this.updateMonitorFraming();
 
-        document.addEventListener('mousedown', (event) => {
+        document.addEventListener('mousedown', (event: MouseEvent & { inComputer?: boolean }) => {
+            // MonitorScreen forwards clicks from the embedded webpage into the
+            // scene so pointer tracking still works. Those clicks belong to the
+            // website (including its nav); they must not toggle the 3D camera.
+            if (event.inComputer) return;
+
             event.preventDefault();
             // print target and current keyframe
             if (
