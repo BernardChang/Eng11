@@ -56,44 +56,45 @@ export default class HardDisk {
         rack.name = 'personnelDiskRack';
 
         const orange = new THREE.MeshBasicMaterial({ color: 0xb95a21 });
+        const orangeLight = new THREE.MeshBasicMaterial({ color: 0xd17432 });
         const floppyModel = this.application.resources.items.gltfModel
             .floppyDiskModel.scene;
 
-        // Rotary archive stand inspired by the reference: circular orange base,
-        // dark central spindle, and cards fanned around the shared pivot.
+        // Long, slotted archive holder. The disks stay upright and parallel,
+        // with their broad faces aligned and the row running front to back.
         const base = new THREE.Mesh(
-            new THREE.CylinderBufferGeometry(560, 560, 56, 48),
+            new THREE.BoxBufferGeometry(500, 58, 620),
             orange
         );
-        base.name = 'diskCarouselBase';
-        base.position.y = 28;
+        base.name = 'diskTrayBase';
+        base.position.y = 29;
         rack.add(base);
-        const spindle = new THREE.Mesh(
-            new THREE.CylinderBufferGeometry(25, 25, 390, 24),
-            new THREE.MeshBasicMaterial({ color: 0x282722 })
-        );
-        spindle.name = 'diskCarouselSpindle';
-        spindle.position.y = 235;
-        rack.add(spindle);
-        const cap = new THREE.Mesh(
-            new THREE.CylinderBufferGeometry(92, 92, 28, 32),
-            new THREE.MeshBasicMaterial({ color: 0x282722 })
-        );
-        cap.name = 'diskCarouselCap';
-        cap.position.y = 444;
-        rack.add(cap);
+        const sideWalls = new THREE.BoxBufferGeometry(36, 105, 620);
+        const leftWall = new THREE.Mesh(sideWalls, orangeLight);
+        leftWall.name = 'diskTrayLeftWall';
+        leftWall.position.set(-232, 66, 0);
+        rack.add(leftWall);
+        const rightWall = new THREE.Mesh(sideWalls, orangeLight);
+        rightWall.name = 'diskTrayRightWall';
+        rightWall.position.set(232, 66, 0);
+        rack.add(rightWall);
+        for (let divider = -2; divider <= 2; divider++) {
+            const rib = new THREE.Mesh(
+                new THREE.BoxBufferGeometry(462, 14, 8),
+                orangeLight
+            );
+            rib.name = `diskSlotDivider${divider + 3}`;
+            rib.position.set(0, 64, divider * 72);
+            rack.add(rib);
+        }
 
         for (let index = 0; index < CASE_COUNT; index++) {
-            const angle = THREE.MathUtils.degToRad(-60 + index * 24);
             const caseGroup = new THREE.Group();
             caseGroup.name = `personnelDisk${index + 1}`;
             const diskHomeY = 245;
-            caseGroup.position.set(
-                Math.cos(angle) * 170,
-                diskHomeY,
-                -Math.sin(angle) * 170
-            );
-            caseGroup.rotation.y = angle;
+            const diskHomeZ = (index - (CASE_COUNT - 1) / 2) * 72;
+            caseGroup.position.set(0, diskHomeY, diskHomeZ);
+            caseGroup.rotation.set(0, 0, 0);
             caseGroup.userData.homeY = diskHomeY;
             this.homeLocalPositions.push(caseGroup.position.clone());
             this.homeLocalRotations.push(caseGroup.rotation.clone());
