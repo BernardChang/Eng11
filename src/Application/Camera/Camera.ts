@@ -154,10 +154,10 @@ export default class Camera extends EventEmitter {
     }
 
     updateMonitorFraming() {
-        // Keep the complete monitor page in frame on narrow windows while
-        // preserving the closer cinematic focus on landscape displays.
+        // Keep the complete display and a little of the computer bezel in
+        // frame while preserving a readable, close monitor view.
         const aspect = this.sizes.width / this.sizes.height;
-        const referenceDistance = 2000 - 255;
+        const referenceDistance = 2200 - 255;
         const distance = referenceDistance * Math.max(1, 1.5 / aspect);
         this.keyframes.monitor.position.z = 255 + distance;
         if (this.currentKeyframe === CameraKey.MONITOR) {
