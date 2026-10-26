@@ -161,7 +161,7 @@ export default class MonitorScreen extends EventEmitter {
         // original monitor instead of loading the remote portfolio iframe.
         // Use a new URL whenever the embedded terminal changes so Chrome does
         // not keep displaying an older cached header/layout after deployment.
-        iframe.src = '/revision/index.html?v=20261026-route-scroll-stable-1';
+        iframe.src = '/revision/index.html?v=20261026-story-tasks-1';
         iframe.style.width = IFRAME_SIZE.w + 'px';
         iframe.style.height = IFRAME_SIZE.h + 'px';
         iframe.style.opacity = '1';
