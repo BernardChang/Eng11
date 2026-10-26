@@ -78,14 +78,14 @@ export default class HardDisk {
         };
 
         // Orange molded holder: a shallow tray with two raised end supports.
-        addBox('diskTrayBase', [2550, 58, 250], [0, 29, 0], orange);
-        addBox('diskTrayFrontLip', [2550, 76, 32], [0, 75, 123], orangeLight);
-        addBox('diskTrayBackLip', [2550, 104, 32], [0, 89, -123], orange);
-        addBox('diskTrayLeftSupport', [48, 175, 260], [-1230, 115, 0], orangeLight);
-        addBox('diskTrayRightSupport', [48, 175, 260], [1230, 115, 0], orangeLight);
+        addBox('diskTrayBase', [2250, 58, 250], [0, 29, 0], orange);
+        addBox('diskTrayFrontLip', [2250, 76, 32], [0, 75, 123], orangeLight);
+        addBox('diskTrayBackLip', [2250, 104, 32], [0, 89, -123], orange);
+        addBox('diskTrayLeftSupport', [48, 175, 260], [-1080, 115, 0], orangeLight);
+        addBox('diskTrayRightSupport', [48, 175, 260], [1080, 115, 0], orangeLight);
 
         for (let index = 0; index < CASE_COUNT; index++) {
-            const x = (index - (CASE_COUNT - 1) / 2) * 390;
+            const x = (index - (CASE_COUNT - 1) / 2) * 350;
             const caseGroup = new THREE.Group();
             caseGroup.name = `personnelDisk${index + 1}`;
             const diskHomeY = 245;
@@ -97,7 +97,7 @@ export default class HardDisk {
 
             const model = floppyModel.clone(true);
             model.name = `floppyModel${index + 1}`;
-            model.rotation.z = -Math.PI / 2;
+            model.rotation.x = Math.PI / 2;
             model.traverse((child) => {
                 if (child instanceof THREE.Mesh) {
                     child.castShadow = true;
@@ -127,7 +127,7 @@ export default class HardDisk {
             caseGroup.add(model);
             const outline = new THREE.LineSegments(
                 new THREE.EdgesGeometry(
-                    new THREE.BoxBufferGeometry(378, 342, 30)
+                    new THREE.BoxBufferGeometry(342, 378, 30)
                 ),
                 new THREE.LineBasicMaterial({
                     color: 0xffffff,
