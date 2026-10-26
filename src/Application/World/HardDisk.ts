@@ -104,8 +104,32 @@ export default class HardDisk {
         window.addEventListener('mousemove', (event) => {
             this.pointerPosition.set(event.clientX, event.clientY);
         });
+        document.addEventListener('mousedown', this.onOutsideRackClick);
         window.addEventListener('message', this.onMessage);
     }
+
+    private onOutsideRackClick = (event: MouseEvent) => {
+        const archiveIsFocused =
+            this.camera.currentKeyframe === CameraKey.ARCHIVE ||
+            this.camera.targetKeyframe === CameraKey.ARCHIVE;
+        if (
+            !archiveIsFocused ||
+            this.inserted ||
+            this.focusing ||
+            this.ejecting
+        ) {
+            return;
+        }
+
+        // Disk hotspots stop the event themselves. Any other click leaves the
+        // rack close-up and returns to the full computer desk view.
+        if (event.target instanceof Element && event.target.closest('button')) return;
+
+        this.selectedIndex = undefined;
+        this.focusing = false;
+        this.setHovered(undefined);
+        this.camera.transition(CameraKey.DESK, 900);
+    };
 
     private createPurgeHole(): THREE.Group {
         const hole = new THREE.Group();
