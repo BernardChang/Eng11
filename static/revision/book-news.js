@@ -112,7 +112,7 @@ window.BOOK_NEWS = [
     "chapter": 8
   },
   {
-    "id": "p2-00",
+    "id": "p2-18",
     "title": "Julia slips Winston a note",
     "summary": "After a fall in the Ministry corridor, Julia secretly passes Winston a message saying she loves him.",
     "part": "Part Two",
