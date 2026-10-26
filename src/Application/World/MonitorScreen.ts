@@ -32,6 +32,7 @@ export default class MonitorScreen extends EventEmitter {
     dimmingPlane: THREE.Mesh;
     videoTextures: { [key in string]: THREE.VideoTexture };
     iframe: HTMLIFrameElement;
+    private focusLocked = false;
 
     constructor() {
         super();
@@ -61,11 +62,11 @@ export default class MonitorScreen extends EventEmitter {
                 // @ts-ignore
                 this.inComputer = event.inComputer;
 
-                if (this.inComputer && !this.prevInComputer) {
+                if (!this.focusLocked && this.inComputer && !this.prevInComputer) {
                     this.camera.trigger('enterMonitor');
                 }
 
-                if (!this.inComputer && this.prevInComputer) {
+                if (!this.focusLocked && !this.inComputer && this.prevInComputer) {
                     this.camera.trigger('leftMonitor');
                 }
 
@@ -84,7 +85,7 @@ export default class MonitorScreen extends EventEmitter {
                 // Some browsers do not send a useful pointer-move into a
                 // CSS3D iframe until it receives focus. Enter the monitor on
                 // the first click as well, so the screen remains discoverable.
-                if (this.inComputer && !this.prevInComputer) {
+                if (!this.focusLocked && this.inComputer && !this.prevInComputer) {
                     this.camera.trigger('enterMonitor');
                 }
 
@@ -94,6 +95,12 @@ export default class MonitorScreen extends EventEmitter {
             },
             false
         );
+    }
+
+    /** Prevent pointer tracking from changing the camera during disk motion. */
+    setFocusLocked(locked: boolean) {
+        this.focusLocked = locked;
+        this.prevInComputer = false;
     }
 
     /**
@@ -152,7 +159,7 @@ export default class MonitorScreen extends EventEmitter {
         // iframe.src = 'http://localhost:3000/';
         // Render the local character-revision game inside the portfolio's
         // original monitor instead of loading the remote portfolio iframe.
-        iframe.src = '/revision/index.html?v=purge-hole-physics-1';
+        iframe.src = '/revision/index.html?v=purge-hole-visible-dossiers-2';
         iframe.style.width = IFRAME_SIZE.w + 'px';
         iframe.style.height = IFRAME_SIZE.h + 'px';
         iframe.style.opacity = '1';

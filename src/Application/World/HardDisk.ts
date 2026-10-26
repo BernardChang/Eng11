@@ -32,6 +32,8 @@ export default class HardDisk {
     private fallbackEjectButton: HTMLButtonElement;
     private readonly purgedDisks = new Set<number>();
     private purgeHole: THREE.Group;
+    // Put the chute in the open desk area, just left of the keyboard, so it
+    // stays in frame while the monitor pulls back to the desk view.
     private readonly purgeHolePosition = new THREE.Vector3(-1050, -410, 850);
     private purging = false;
     private pointerPosition = new THREE.Vector2(-1, -1);
@@ -93,16 +95,24 @@ export default class HardDisk {
         hole.name = 'deskPurgeHole';
         hole.position.copy(this.purgeHolePosition);
         const rimMaterial = new THREE.MeshBasicMaterial({ color: 0x20201e });
+        const warningMaterial = new THREE.MeshBasicMaterial({ color: 0x963e37 });
         const throatMaterial = new THREE.MeshBasicMaterial({
             color: 0x050505,
             side: THREE.DoubleSide,
         });
         const base = new THREE.Mesh(
-            new THREE.CylinderBufferGeometry(325, 340, 28, 48),
+            new THREE.CylinderBufferGeometry(325, 340, 28, 48, 1, true),
             rimMaterial
         );
         base.position.y = -4;
         hole.add(base);
+        const topRing = new THREE.Mesh(
+            new THREE.RingBufferGeometry(285, 340, 48),
+            rimMaterial
+        );
+        topRing.rotation.x = -Math.PI / 2;
+        topRing.position.y = 10;
+        hole.add(topRing);
         const throat = new THREE.Mesh(
             new THREE.CylinderBufferGeometry(285, 190, 240, 48, 1, true),
             throatMaterial
@@ -123,6 +133,44 @@ export default class HardDisk {
         lip.rotation.x = Math.PI / 2;
         lip.position.y = 12;
         hole.add(lip);
+        const warningRing = new THREE.Mesh(
+            new THREE.TorusBufferGeometry(365, 12, 10, 48),
+            warningMaterial
+        );
+        warningRing.rotation.x = Math.PI / 2;
+        warningRing.position.y = 4;
+        hole.add(warningRing);
+
+        // A small printed desk marker makes the opening legible from the
+        // normal desk camera before the player starts the purge sequence.
+        const markerCanvas = document.createElement('canvas');
+        markerCanvas.width = 512;
+        markerCanvas.height = 128;
+        const markerContext = markerCanvas.getContext('2d');
+        if (markerContext) {
+            markerContext.fillStyle = '#252622';
+            markerContext.fillRect(0, 0, markerCanvas.width, markerCanvas.height);
+            markerContext.strokeStyle = '#963e37';
+            markerContext.lineWidth = 8;
+            markerContext.strokeRect(5, 5, markerCanvas.width - 10, markerCanvas.height - 10);
+            markerContext.fillStyle = '#f4f1e9';
+            markerContext.font = 'bold 38px monospace';
+            markerContext.textAlign = 'center';
+            markerContext.textBaseline = 'middle';
+            markerContext.fillText('PURGE CHUTE', markerCanvas.width / 2, markerCanvas.height / 2);
+        }
+        const marker = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(560, 140),
+            new THREE.MeshBasicMaterial({
+                map: new THREE.CanvasTexture(markerCanvas),
+                side: THREE.DoubleSide,
+                depthTest: false,
+            })
+        );
+        marker.rotation.x = -Math.PI / 2;
+        marker.position.set(0, 8, 480);
+        marker.renderOrder = 5;
+        hole.add(marker);
         return hole;
     }
 
@@ -205,6 +253,7 @@ export default class HardDisk {
                 }
             });
             caseGroup.add(model);
+            caseGroup.add(this.createDiskLabel(index));
             const outline = new THREE.LineSegments(
                 new THREE.EdgesGeometry(
                     new THREE.BoxBufferGeometry(342, 378, 30)
@@ -225,6 +274,91 @@ export default class HardDisk {
 
         this.disks.forEach((disk, index) => this.createDiskHotspot(index));
         return rack;
+    }
+
+    private createDiskLabel(index: number): THREE.Mesh {
+        const defaults = [
+            {
+                name: 'Comrade Arlen Ogilvy',
+                dob: '1961-03-12',
+                job: 'Junior Anti-Sex League organizer',
+            },
+            { name: 'Mara Venn', dob: '1954-08-19', job: 'Records clerk' },
+            { name: 'Tomas Wren', dob: '1948-02-04', job: 'Transit scheduler' },
+            { name: 'Elia North', dob: '1960-11-23', job: 'Junior instructor' },
+            { name: 'Pavel Sorn', dob: '1939-06-01', job: 'Supply coordinator' },
+            { name: 'Iris Bell', dob: '1958-04-15', job: 'Community liaison' },
+        ];
+        let details = defaults[index];
+        try {
+            const saved = JSON.parse(
+                window.localStorage.getItem('truth-terminal-profiles-v4') || '{}'
+            );
+            const assignmentIds = ['0041', '0178', '0264'];
+            const assignmentId = assignmentIds[index];
+            const savedProfile = saved.profiles?.find(
+                (profile: { assignmentId?: string; name?: string }) =>
+                    profile.assignmentId === assignmentId
+            );
+            if (savedProfile?.name) {
+                details = {
+                    ...details,
+                    name: savedProfile.name,
+                    dob: savedProfile.dob || details.dob,
+                    job: savedProfile.job || details.job,
+                };
+            }
+        } catch {
+            // Keep the built-in person label if there is no saved profile yet.
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 192;
+        const context = canvas.getContext('2d');
+        if (context) {
+            context.fillStyle = '#e5dfd1';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.strokeStyle = '#918b7f';
+            context.lineWidth = 5;
+            context.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+            context.fillStyle = '#3e403d';
+            context.font = '18px monospace';
+            context.fillText(`PERSONNEL DISK ${String(index + 1).padStart(2, '0')}`, 24, 42);
+            context.font = 'bold 28px sans-serif';
+            const words = details.name.split(' ');
+            let line = '';
+            let y = 88;
+            for (const word of words) {
+                const next = line ? `${line} ${word}` : word;
+                if (context.measureText(next).width > 455 && line) {
+                    context.fillText(line, 24, y);
+                    line = word;
+                    y += 38;
+                } else {
+                    line = next;
+                }
+            }
+            context.fillText(line, 24, y);
+            context.font = '17px monospace';
+            context.fillText(`BORN ${details.dob}`, 24, 158);
+            context.fillText(details.job.toUpperCase(), 24, 181);
+        }
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.encoding = THREE.sRGBEncoding;
+        const label = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(270, 102),
+            new THREE.MeshBasicMaterial({
+                map: texture,
+                side: THREE.DoubleSide,
+                depthTest: true,
+            })
+        );
+        label.name = `personnelDiskLabel${index + 1}`;
+        // The local +X face points toward the viewer after the slot quarter-turn.
+        label.position.set(12, -96, 0);
+        label.renderOrder = 2;
+        return label;
     }
 
     private createDiskHotspot(index: number) {
@@ -369,6 +503,7 @@ export default class HardDisk {
         if (event.data?.type === 'person-file-opened') {
             if (event.data.diskIndex === this.selectedIndex) {
                 this.fileOpened = true;
+                this.monitorScreen.setFocusLocked(false);
                 window.clearTimeout(this.fileOpenTimer);
                 this.fallbackEjectButton.style.display = 'none';
             }
@@ -410,15 +545,24 @@ export default class HardDisk {
 
     private openDiskFile(index: number) {
         this.inserted = true;
+        this.monitorScreen.setFocusLocked(true);
         this.ejecting = false;
         this.fileOpened = false;
         this.fallbackEjectButton.style.display = 'none';
         window.clearTimeout(this.fileOpenTimer);
         this.fileOpenTimer = window.setTimeout(() => {
-            if (this.inserted && !this.fileOpened) {
-                this.fallbackEjectButton.style.display = 'block';
-            }
-        }, 4500);
+            if (!this.inserted || this.fileOpened) return;
+            // If a camera interruption cancelled the insert tweens, complete
+            // the handoff and request the selected disk's own dossier again.
+            this.disks[index].visible = false;
+            this.camera.transition(CameraKey.MONITOR, 650);
+            this.monitorScreen.openPersonFile(index);
+            this.fileOpenTimer = window.setTimeout(() => {
+                if (this.inserted && !this.fileOpened) {
+                    this.fallbackEjectButton.style.display = 'block';
+                }
+            }, 1800);
+        }, 3200);
         this.focusing = true;
         this.renderer.domElement.style.cursor = 'default';
         const disk = this.disks[index];
@@ -465,6 +609,7 @@ export default class HardDisk {
         const disk = this.disks[index];
         this.ejecting = true;
         this.purging = true;
+        this.monitorScreen.setFocusLocked(true);
         this.fileOpened = false;
         window.clearTimeout(this.fileOpenTimer);
         this.fallbackEjectButton.style.display = 'none';
@@ -503,6 +648,7 @@ export default class HardDisk {
             this.selectedIndex = undefined;
             this.setHovered(undefined);
             this.camera.transition(CameraKey.ARCHIVE, 1050);
+            window.setTimeout(() => this.monitorScreen.setFocusLocked(false), 1100);
         };
 
         const launch = new TWEEN.Tween(disk.position)
@@ -543,7 +689,11 @@ export default class HardDisk {
                                 disk.scale.setScalar(1 - sink.progress * 0.82);
                                 disk.rotation.z += 0.035;
                             })
-                            .onComplete(finishPurge);
+                            .onComplete(() => {
+                                // Leave the disk visibly settled in the opening
+                                // before returning to the archive camera.
+                                window.setTimeout(finishPurge, 850);
+                            });
                         activeTween = sinkTween;
                         sinkTween.start();
                     });
@@ -552,7 +702,7 @@ export default class HardDisk {
             });
         activeTween = launch;
         launch.start();
-        safetyTimer = window.setTimeout(finishPurge, 3200);
+        safetyTimer = window.setTimeout(finishPurge, 4300);
     }
 
     private eject() {
@@ -584,9 +734,11 @@ export default class HardDisk {
             this.focusing = false;
             this.setHovered(undefined);
             this.camera.transition(CameraKey.ARCHIVE, 1050);
+            window.setTimeout(() => this.monitorScreen.setFocusLocked(false), 1100);
         };
 
         this.ejecting = true;
+        this.monitorScreen.setFocusLocked(true);
         window.clearTimeout(this.fileOpenTimer);
         this.fallbackEjectButton.style.display = 'none';
         this.monitorScreen.closePersonFile();
