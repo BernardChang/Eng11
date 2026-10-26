@@ -32,6 +32,10 @@ const keys: { [key in CameraKey]: CameraKeyframe } = {
         position: new THREE.Vector3(0, 1500, 5000),
         focalPoint: new THREE.Vector3(0, 500, 0),
     },
+    archive: {
+        position: new THREE.Vector3(-600, 380, 2520),
+        focalPoint: new THREE.Vector3(-1380, -210, 650),
+    },
     loading: {
         position: new THREE.Vector3(-30000, 30000, 30000),
         focalPoint: new THREE.Vector3(0, -5000, 0),
@@ -93,6 +97,13 @@ export class DeskKeyframe extends CameraKeyframeInstance {
 
         this.focalPoint.copy(this.targetFoc);
         this.position.copy(this.targetPos);
+    }
+}
+
+/** Close, steady view of the removable-media rack for selecting one disk. */
+export class ArchiveKeyframe extends CameraKeyframeInstance {
+    constructor() {
+        super(keys.archive);
     }
 }
 

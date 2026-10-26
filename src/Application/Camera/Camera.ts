@@ -13,6 +13,7 @@ import {
     IdleKeyframe,
     LoadingKeyframe,
     DeskKeyframe,
+    ArchiveKeyframe,
     CoffeeKeyframe,
 } from './CameraKeyframes';
 
@@ -21,6 +22,7 @@ export enum CameraKey {
     MONITOR = 'monitor',
     LOADING = 'loading',
     DESK = 'desk',
+    ARCHIVE = 'archive',
     COFFEE = 'coffee',
 }
 export default class Camera extends EventEmitter {
@@ -56,6 +58,7 @@ export default class Camera extends EventEmitter {
             monitor: new MonitorKeyframe(),
             loading: new LoadingKeyframe(),
             desk: new DeskKeyframe(),
+            archive: new ArchiveKeyframe(),
             coffee: new CoffeeKeyframe(),
         };
         this.updateMonitorFraming();

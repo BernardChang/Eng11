@@ -152,7 +152,7 @@ export default class MonitorScreen extends EventEmitter {
         // iframe.src = 'http://localhost:3000/';
         // Render the local character-revision game inside the portfolio's
         // original monitor instead of loading the remote portfolio iframe.
-        iframe.src = '/revision/index.html?v=hard-disk-1';
+        iframe.src = '/revision/index.html?v=individual-disks-2';
         iframe.style.width = IFRAME_SIZE.w + 'px';
         iframe.style.height = IFRAME_SIZE.h + 'px';
         iframe.style.opacity = '1';
@@ -166,9 +166,9 @@ export default class MonitorScreen extends EventEmitter {
         this.createCssPlane(container);
     }
 
-    openPersonFile() {
+    openPersonFile(diskIndex: number) {
         this.iframe.contentWindow?.postMessage(
-            { type: 'open-person-file' },
+            { type: 'open-person-file', diskIndex },
             window.location.origin
         );
     }
