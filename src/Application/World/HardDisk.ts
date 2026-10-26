@@ -6,6 +6,15 @@ import MonitorScreen from './MonitorScreen';
 import UIEventBus from '../UI/EventBus';
 
 const CASE_COUNT = 10;
+const MAX_DISKS = CASE_COUNT + 3;
+const CREATED_DISKS_KEY = 'truth-terminal-created-disks-v1';
+
+type CharacterDiskProfile = {
+    id: string;
+    name: string;
+    dob: string;
+    job: string;
+};
 
 /** A small, clickable archive-disk rack placed beside the computer keyboard. */
 export default class HardDisk {
@@ -41,6 +50,8 @@ export default class HardDisk {
     private coffeeMotionHome = new THREE.Vector3();
     private coffeeAnimationStartedAt: number | undefined;
     private coffeeSteam: THREE.Object3D | undefined;
+    private readonly createdProfileIds = new Set<string>();
+    private readonly pendingProfileIds = new Set<string>();
 
     constructor(monitorScreen: MonitorScreen) {
         this.application = new Application();
@@ -55,7 +66,7 @@ export default class HardDisk {
             );
             if (Array.isArray(stored)) {
                 stored.forEach((index) => {
-                    if (Number.isInteger(index) && index >= 0 && index < CASE_COUNT) {
+                    if (Number.isInteger(index) && index >= 0 && index < MAX_DISKS) {
                         this.purgedDisks.add(index);
                     }
                 });
@@ -67,6 +78,7 @@ export default class HardDisk {
         this.rack = this.createRack();
         this.rack.position.copy(this.homePosition);
         this.scene.add(this.rack);
+        this.loadCreatedCharacterDisks();
         this.purgeHole = this.createPurgeHole();
         this.scene.add(this.purgeHole);
         this.disks.forEach((disk, index) => {
@@ -186,13 +198,13 @@ export default class HardDisk {
         // Long, slotted archive holder. The disks stay upright and parallel,
         // with their broad faces aimed forward and the row turned sideways.
         const base = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(900, 58, 500),
+            new THREE.BoxBufferGeometry(1200, 58, 500),
             orange
         );
         base.name = 'diskTrayBase';
         base.position.y = 29;
         rack.add(base);
-        const sideWalls = new THREE.BoxBufferGeometry(900, 105, 36);
+        const sideWalls = new THREE.BoxBufferGeometry(1200, 105, 36);
         const leftWall = new THREE.Mesh(sideWalls, orangeLight);
         leftWall.name = 'diskTrayLeftWall';
         leftWall.position.set(0, 66, -232);
@@ -210,73 +222,89 @@ export default class HardDisk {
             rib.position.set(divider * 72, 64, 0);
             rack.add(rib);
         }
-
-        for (let index = 0; index < CASE_COUNT; index++) {
-            const caseGroup = new THREE.Group();
-            caseGroup.name = `personnelDisk${index + 1}`;
-            const diskHomeY = 245;
-            const diskHomeX = (index - (CASE_COUNT - 1) / 2) * 72;
-            caseGroup.position.set(diskHomeX, diskHomeY, 0);
-            caseGroup.rotation.set(0, Math.PI / 2, 0);
-            caseGroup.userData.homeY = diskHomeY;
-            this.homeLocalPositions.push(caseGroup.position.clone());
-            this.homeLocalRotations.push(caseGroup.rotation.clone());
-            rack.add(caseGroup);
-            this.disks.push(caseGroup);
-
-            const model = floppyModel.clone(true);
-            model.name = `floppyModel${index + 1}`;
-            model.traverse((child) => {
-                if (child instanceof THREE.Mesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-                    const materials = Array.isArray(child.material)
-                        ? child.material
-                        : [child.material];
-                    const palette: Record<string, number> = {
-                        Plastic: 0x1d3159,
-                        Metal: 0xb9b8b1,
-                        Disc: 0x252a32,
-                        Label: 0xffffff,
-                    };
-                    const converted = materials.map(
-                        (material) =>
-                            new THREE.MeshBasicMaterial({
-                                color: palette[material.name] || 0xe7e0ce,
-                                map: material.map || null,
-                                side: THREE.DoubleSide,
-                            })
-                    );
-                    child.material = Array.isArray(child.material)
-                        ? converted
-                        : converted[0];
-                }
-            });
-            caseGroup.add(model);
-            caseGroup.add(this.createDiskLabel(index));
-            const outline = new THREE.LineSegments(
-                new THREE.EdgesGeometry(
-                    new THREE.BoxBufferGeometry(342, 378, 30)
-                ),
-                new THREE.LineBasicMaterial({
-                    color: 0xffffff,
-                    transparent: true,
-                    opacity: 1,
-                    depthTest: false,
-                })
+        for (const x of [360, 432, 504]) {
+            const rib = new THREE.Mesh(
+                new THREE.BoxBufferGeometry(8, 14, 462),
+                orangeLight
             );
-            outline.visible = false;
-            outline.renderOrder = 10;
-            caseGroup.add(outline);
-            this.outlines.push(outline);
-
+            rib.name = `diskSlotDividerCustom${x}`;
+            rib.position.set(x, 64, 0);
+            rack.add(rib);
         }
 
-        this.disks.forEach((disk, index) => this.createDiskHotspot(index));
+        for (let index = 0; index < CASE_COUNT; index++) {
+            this.createDiskSlot(index, undefined, rack);
+        }
         return rack;
     }
 
-    private createDiskLabel(index: number): THREE.Mesh {
+    private createDiskSlot(
+        index: number,
+        profile: CharacterDiskProfile | undefined,
+        rack: THREE.Group
+    ) {
+        const floppyModel = this.application.resources.items.gltfModel
+            .floppyDiskModel.scene;
+        const caseGroup = new THREE.Group();
+        caseGroup.name = `personnelDisk${index + 1}`;
+        const diskHomeY = 245;
+        const diskHomeX = (index - (CASE_COUNT - 1) / 2) * 72;
+        caseGroup.position.set(diskHomeX, diskHomeY, 0);
+        caseGroup.rotation.set(0, Math.PI / 2, 0);
+        caseGroup.userData.homeY = diskHomeY;
+        caseGroup.userData.profileId = profile?.id;
+        this.homeLocalPositions[index] = caseGroup.position.clone();
+        this.homeLocalRotations[index] = caseGroup.rotation.clone();
+        rack.add(caseGroup);
+        this.disks[index] = caseGroup;
+
+        const model = floppyModel.clone(true);
+        model.name = `floppyModel${index + 1}`;
+        model.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                const materials = Array.isArray(child.material)
+                    ? child.material
+                    : [child.material];
+                const palette: Record<string, number> = {
+                    Plastic: 0x1d3159,
+                    Metal: 0xb9b8b1,
+                    Disc: 0x252a32,
+                    Label: 0xffffff,
+                };
+                const converted = materials.map(
+                    (material) =>
+                        new THREE.MeshBasicMaterial({
+                            color: palette[material.name] || 0xe7e0ce,
+                            map: material.map || null,
+                            side: THREE.DoubleSide,
+                        })
+                );
+                child.material = Array.isArray(child.material)
+                    ? converted
+                    : converted[0];
+            }
+        });
+        caseGroup.add(model);
+        caseGroup.add(this.createDiskLabel(index, profile));
+        const outline = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.BoxBufferGeometry(342, 378, 30)),
+            new THREE.LineBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 1,
+                depthTest: false,
+            })
+        );
+        outline.visible = false;
+        outline.renderOrder = 10;
+        caseGroup.add(outline);
+        this.outlines[index] = outline;
+        this.createDiskHotspot(index);
+    }
+
+    private createDiskLabel(index: number, profile?: CharacterDiskProfile): THREE.Mesh {
         const defaults = [
             {
                 name: 'Comrade Arlen Ogilvy',
@@ -293,7 +321,7 @@ export default class HardDisk {
             { name: 'Cato Mire', dob: '1937-12-08', job: 'Public works foreman' },
             { name: 'Nella Firth', dob: '1963-05-21', job: 'Junior archive assistant' },
         ];
-        let details = defaults[index];
+        let details = profile || defaults[index] || defaults[0];
         try {
             const saved = JSON.parse(
                 window.localStorage.getItem('truth-terminal-profiles-v4') || '{}'
@@ -363,6 +391,151 @@ export default class HardDisk {
         label.position.set(12, -96, 0);
         label.renderOrder = 2;
         return label;
+    }
+
+    private loadCreatedCharacterDisks() {
+        let ids: string[] = [];
+        let profiles: CharacterDiskProfile[] = [];
+        try {
+            const storedIds = JSON.parse(
+                window.localStorage.getItem(CREATED_DISKS_KEY) || '[]'
+            );
+            const saved = JSON.parse(
+                window.localStorage.getItem('truth-terminal-profiles-v4') || '{}'
+            );
+            ids = Array.isArray(storedIds) ? storedIds.filter((id) => typeof id === 'string') : [];
+            profiles = Array.isArray(saved.profiles) ? saved.profiles : [];
+        } catch {
+            return;
+        }
+
+        const validIds: string[] = [];
+        for (const id of ids) {
+            const profile = profiles.find((entry) => entry.id === id);
+            if (!profile || this.disks.length >= MAX_DISKS) continue;
+            if (!profile.name || !profile.dob || !profile.job) continue;
+            validIds.push(id);
+            this.createdProfileIds.add(id);
+            this.createDiskSlot(this.disks.length, profile, this.rack);
+        }
+        try {
+            window.localStorage.setItem(CREATED_DISKS_KEY, JSON.stringify(validIds));
+        } catch {
+            // Existing disks remain available for this session.
+        }
+    }
+
+    private createCharacterDisk(profileId: unknown) {
+        if (typeof profileId !== 'string' || !profileId) return;
+        if (this.pendingProfileIds.has(profileId)) return;
+
+        let profile: CharacterDiskProfile | undefined;
+        try {
+            const saved = JSON.parse(
+                window.localStorage.getItem('truth-terminal-profiles-v4') || '{}'
+            );
+            profile = Array.isArray(saved.profiles)
+                ? saved.profiles.find((entry: CharacterDiskProfile) => entry.id === profileId)
+                : undefined;
+        } catch {
+            profile = undefined;
+        }
+        if (!profile?.id || !profile.name || !profile.dob || !profile.job) {
+            this.replyDiskCreated(profileId, 'error');
+            return;
+        }
+
+        if (this.createdProfileIds.has(profileId)) {
+            const index = this.disks.findIndex(
+                (disk) => disk.userData.profileId === profileId
+            );
+            this.replyDiskCreated(profileId, 'exists', index);
+            return;
+        }
+        if (this.disks.length >= MAX_DISKS) {
+            this.replyDiskCreated(profileId, 'full');
+            return;
+        }
+
+        const index = this.disks.length;
+        this.pendingProfileIds.add(profileId);
+        this.createdProfileIds.add(profileId);
+        try {
+            window.localStorage.setItem(
+                CREATED_DISKS_KEY,
+                JSON.stringify(Array.from(this.createdProfileIds))
+            );
+        } catch {
+            this.createdProfileIds.delete(profileId);
+            this.pendingProfileIds.delete(profileId);
+            this.replyDiskCreated(profileId, 'error');
+            return;
+        }
+
+        this.rack.updateMatrixWorld(true);
+        this.createDiskSlot(index, profile, this.rack);
+        const disk = this.disks[index];
+        const homePosition = this.rack.localToWorld(
+            this.homeLocalPositions[index].clone()
+        );
+        this.scene.attach(disk);
+        disk.visible = true;
+        disk.position.copy(this.slotPosition);
+        disk.rotation.set(Math.PI / 2, 0, 0);
+        disk.scale.setScalar(0.82);
+        this.monitorScreen.setFocusLocked(true);
+        this.camera.transition(CameraKey.DESK, 900);
+
+        let complete = false;
+        let safetyTimer = 0;
+        const finishCreation = () => {
+            if (complete) return;
+            complete = true;
+            window.clearTimeout(safetyTimer);
+            this.rack.updateMatrixWorld(true);
+            this.rack.attach(disk);
+            disk.position.copy(this.homeLocalPositions[index]);
+            disk.rotation.copy(this.homeLocalRotations[index]);
+            disk.scale.setScalar(1);
+            disk.visible = true;
+            this.camera.transition(CameraKey.ARCHIVE, 1050);
+            this.pendingProfileIds.delete(profileId);
+            window.setTimeout(() => this.monitorScreen.setFocusLocked(false), 1100);
+            this.replyDiskCreated(profileId, 'created', index);
+        };
+
+        const toss = { progress: 0 };
+        new TWEEN.Tween(toss)
+            .to({ progress: 1 }, 2100)
+            .easing(TWEEN.Easing.Cubic.InOut)
+            .onUpdate(() => {
+                const t = toss.progress;
+                disk.position.set(
+                    THREE.MathUtils.lerp(this.slotPosition.x, homePosition.x, t),
+                    THREE.MathUtils.lerp(this.slotPosition.y, homePosition.y, t) + Math.sin(t * Math.PI) * 520,
+                    THREE.MathUtils.lerp(this.slotPosition.z, homePosition.z, t)
+                );
+                disk.rotation.set(
+                    Math.PI / 2 + t * Math.PI * 2,
+                    t * Math.PI * 4,
+                    t * Math.PI * 1.5
+                );
+                disk.scale.setScalar(THREE.MathUtils.lerp(0.82, 1, t));
+            })
+            .onComplete(finishCreation)
+            .start();
+        safetyTimer = window.setTimeout(finishCreation, 2800);
+    }
+
+    private replyDiskCreated(
+        profileId: string,
+        status: 'created' | 'exists' | 'full' | 'error',
+        diskIndex?: number
+    ) {
+        this.monitorScreen.iframe.contentWindow?.postMessage(
+            { type: 'character-disk-created', profileId, status, diskIndex },
+            window.location.origin
+        );
     }
 
     private createDiskHotspot(index: number) {
@@ -512,6 +685,10 @@ export default class HardDisk {
                 window.clearTimeout(this.fileOpenTimer);
                 this.fallbackEjectButton.style.display = 'none';
             }
+            return;
+        }
+        if (event.data?.type === 'create-character-disk') {
+            this.createCharacterDisk(event.data.profileId);
             return;
         }
         if (event.data?.type === 'eject-hard-disk') this.eject();
