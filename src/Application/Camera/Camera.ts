@@ -15,7 +15,6 @@ import {
     DeskKeyframe,
     ArchiveKeyframe,
     CoffeeKeyframe,
-    ClockKeyframe,
 } from './CameraKeyframes';
 
 export enum CameraKey {
@@ -25,7 +24,6 @@ export enum CameraKey {
     DESK = 'desk',
     ARCHIVE = 'archive',
     COFFEE = 'coffee',
-    CLOCK = 'clock',
 }
 export default class Camera extends EventEmitter {
     application: Application;
@@ -42,6 +40,7 @@ export default class Camera extends EventEmitter {
     currentKeyframe: CameraKey | undefined;
     targetKeyframe: CameraKey | undefined;
     keyframes: { [key in CameraKey]: CameraKeyframeInstance };
+    private archiveFocusPoint: THREE.Vector3 | undefined;
 
     constructor() {
         super();
@@ -62,7 +61,6 @@ export default class Camera extends EventEmitter {
             desk: new DeskKeyframe(),
             archive: new ArchiveKeyframe(),
             coffee: new CoffeeKeyframe(),
-            clock: new ClockKeyframe(),
         };
         this.updateMonitorFraming();
 
@@ -84,11 +82,6 @@ export default class Camera extends EventEmitter {
                 this.targetKeyframe === CameraKey.DESK
             ) {
                 this.transition(CameraKey.IDLE);
-            } else if (
-                this.currentKeyframe === CameraKey.CLOCK ||
-                this.targetKeyframe === CameraKey.CLOCK
-            ) {
-                this.transition(CameraKey.DESK);
             }
         });
 
@@ -98,7 +91,14 @@ export default class Camera extends EventEmitter {
     }
 
     transition(key: CameraKey, duration: number = 1000, easing?: any) {
-        if (this.currentKeyframe === key) return;
+        if (this.currentKeyframe === key) {
+            if (
+                key !== CameraKey.ARCHIVE ||
+                this.focalPoint.distanceToSquared(this.keyframes.archive.focalPoint) < 1
+            ) {
+                return;
+            }
+        }
 
         if (key === CameraKey.MONITOR) this.updateMonitorFraming();
         if (key === CameraKey.ARCHIVE) this.updateArchiveFraming();
@@ -181,16 +181,21 @@ export default class Camera extends EventEmitter {
     updateArchiveFraming() {
         const aspect = this.sizes.width / this.sizes.height;
         const scale = Math.max(1, 1.5 / aspect);
-        const target = new THREE.Vector3(-1950, -210, 650);
-        const basePosition = new THREE.Vector3(-950, 380, 3850);
-        const position = target
-            .clone()
-            .add(basePosition.sub(target).multiplyScalar(scale));
+        const defaultTarget = new THREE.Vector3(-1950, -210, 650);
+        const target = this.archiveFocusPoint?.clone() || defaultTarget;
+        const archiveViewDirection = new THREE.Vector3(1000, 590, 3200).normalize();
+        const position = this.archiveFocusPoint
+            ? target.clone().addScaledVector(archiveViewDirection, 950 * scale)
+            : target
+                  .clone()
+                  .add(new THREE.Vector3(1000, 590, 3200).multiplyScalar(scale));
         this.keyframes.archive.focalPoint.copy(target);
         this.keyframes.archive.position.copy(position);
-        if (this.currentKeyframe === CameraKey.ARCHIVE) {
-            this.position.copy(position);
-        }
+    }
+
+    focusArchivePoint(target: THREE.Vector3) {
+        this.archiveFocusPoint = target.clone();
+        this.updateArchiveFraming();
     }
 
     update() {

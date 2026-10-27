@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import Application from '../Application';
-import { CameraKey } from '../Camera/Camera';
 
 /** Places the supplied alarm clock on the desk beside the speakers. */
 export default class DeskClock {
@@ -9,13 +8,6 @@ export default class DeskClock {
     private hourHand: THREE.Group;
     private minuteHand: THREE.Group;
     private readonly startedAt = performance.now();
-    private focusHotspot: HTMLButtonElement;
-    private focusHint: HTMLDivElement;
-    private readonly dialCenter = new THREE.Vector3(
-        0,
-        (0.5419967 + 2.9325514) / 2,
-        0.4652037
-    );
 
     constructor(source: LoadedModel) {
         this.application = new Application();
@@ -68,41 +60,6 @@ export default class DeskClock {
         // Turn the dial slightly toward the camera's left-of-center view.
         this.model.rotation.y = -0.22;
         this.application.scene.add(this.model);
-        this.model.updateMatrixWorld(true);
-        const focus = this.dialCenter.clone().applyMatrix4(this.model.matrixWorld);
-        const normal = new THREE.Vector3(0, 0, 1).transformDirection(this.model.matrixWorld);
-        const clockFrame = this.application.camera.keyframes[CameraKey.CLOCK];
-        clockFrame.focalPoint.copy(focus);
-        clockFrame.position.copy(focus).addScaledVector(normal, 650);
-
-        this.focusHotspot = document.createElement('button');
-        this.focusHotspot.type = 'button';
-        this.focusHotspot.setAttribute('aria-label', 'Zoom into the clock');
-        this.focusHotspot.title = 'Zoom into the clock';
-        this.focusHotspot.style.cssText =
-            'position:fixed;display:none;width:116px;height:116px;padding:0;border:0;border-radius:50%;background:transparent;cursor:zoom-in;z-index:10006;';
-        this.focusHotspot.addEventListener('mousedown', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        });
-        this.focusHotspot.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const focused =
-                this.application.camera.currentKeyframe === CameraKey.CLOCK ||
-                this.application.camera.targetKeyframe === CameraKey.CLOCK;
-            this.application.camera.transition(
-                focused ? CameraKey.DESK : CameraKey.CLOCK,
-                1000
-            );
-        });
-        document.body.appendChild(this.focusHotspot);
-
-        this.focusHint = document.createElement('div');
-        this.focusHint.textContent = 'CLICK CLOCK TO ZOOM';
-        this.focusHint.style.cssText =
-            'position:fixed;display:none;z-index:10007;pointer-events:none;padding:7px 10px;background:#111;color:#fff;border:1px solid #fff;font:10px monospace;letter-spacing:.08em;white-space:nowrap;';
-        document.body.appendChild(this.focusHint);
         this.update();
     }
 
@@ -132,58 +89,6 @@ export default class DeskClock {
         // Start at the dial's baked-in 10:10 pose, then keep advancing.
         this.hourHand.rotation.z = (Math.PI * 11) / 36 - Math.PI * 4 * dayProgress;
         this.minuteHand.rotation.z = -Math.PI / 3 - Math.PI * 48 * dayProgress;
-        this.updateFocusHotspot();
     }
 
-    private updateFocusHotspot() {
-        const camera = this.application.camera;
-        const allowedViews = [CameraKey.IDLE, CameraKey.DESK, CameraKey.CLOCK];
-        if (
-            !(camera.currentKeyframe && allowedViews.includes(camera.currentKeyframe)) &&
-            !(camera.targetKeyframe && allowedViews.includes(camera.targetKeyframe))
-        ) {
-            this.focusHotspot.style.display = 'none';
-            this.focusHint.style.display = 'none';
-            return;
-        }
-
-        this.model.updateMatrixWorld(true);
-        camera.instance.updateMatrixWorld(true);
-        const point = this.dialCenter
-            .clone()
-            .applyMatrix4(this.model.matrixWorld)
-            .project(camera.instance);
-        if (point.z < -1 || point.z > 1 || Math.abs(point.x) > 1.1 || Math.abs(point.y) > 1.1) {
-            this.focusHotspot.style.display = 'none';
-            this.focusHint.style.display = 'none';
-            return;
-        }
-
-        const canvas = this.application.renderer.instance.domElement.getBoundingClientRect();
-        const x = canvas.left + ((point.x + 1) / 2) * canvas.width;
-        const y = canvas.top + ((1 - point.y) / 2) * canvas.height;
-        this.focusHotspot.style.left = `${x - 58}px`;
-        this.focusHotspot.style.top = `${y - 58}px`;
-        this.focusHotspot.style.cursor =
-            camera.currentKeyframe === CameraKey.CLOCK || camera.targetKeyframe === CameraKey.CLOCK
-                ? 'zoom-out'
-                : 'zoom-in';
-        this.focusHotspot.setAttribute(
-            'aria-label',
-            camera.currentKeyframe === CameraKey.CLOCK || camera.targetKeyframe === CameraKey.CLOCK
-                ? 'Return to the desk view'
-                : 'Zoom into the clock'
-        );
-        this.focusHotspot.title =
-            camera.currentKeyframe === CameraKey.CLOCK || camera.targetKeyframe === CameraKey.CLOCK
-                ? 'Return to the desk view'
-                : 'Zoom into the clock';
-        this.focusHotspot.style.display = 'block';
-        const isFocused =
-            camera.currentKeyframe === CameraKey.CLOCK || camera.targetKeyframe === CameraKey.CLOCK;
-        this.focusHint.textContent = isFocused ? 'CLICK TO RETURN TO DESK' : 'CLICK CLOCK TO ZOOM';
-        this.focusHint.style.left = `${x + 54}px`;
-        this.focusHint.style.top = `${y + 50}px`;
-        this.focusHint.style.display = 'block';
-    }
 }

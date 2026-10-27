@@ -743,7 +743,7 @@ export default class HardDisk {
             hotspot.style.width = `${Math.min(width + 6, canvas.width)}px`;
             hotspot.style.height = `${Math.min(height + 6, canvas.height)}px`;
             hotspot.style.display = 'block';
-            if (this.selectedIndex === index && this.hint.style.display === 'block') {
+            if (this.hoveredIndex === index && this.hint.style.display === 'block') {
                 this.hint.style.left = `${Math.max(canvas.left, left)}px`;
                 this.hint.style.top = `${Math.max(canvas.top, top - 34)}px`;
             }
@@ -907,19 +907,22 @@ export default class HardDisk {
             this.selectedIndex = index;
         }
         this.setHovered(index);
-        if (this.camera.currentKeyframe !== CameraKey.ARCHIVE) {
-            this.focusing = true;
-            this.camera.transition(CameraKey.ARCHIVE, 1100);
-            new TWEEN.Tween({ progress: 0 })
-                .to({ progress: 1 }, 1100)
-                .onComplete(() => {
-                    this.focusing = false;
-                    this.refreshHoveredDisk();
-                    this.hint.textContent = 'DISK FOCUSED · CLICK AGAIN TO READ FILE';
-                    this.hint.style.display = 'block';
-                })
-                .start();
-        }
+        this.rack.updateMatrixWorld(true);
+        const focusPoint = new THREE.Box3()
+            .setFromObject(this.disks[index])
+            .getCenter(new THREE.Vector3());
+        this.camera.focusArchivePoint(focusPoint);
+        this.focusing = true;
+        this.camera.transition(CameraKey.ARCHIVE, 1100);
+        new TWEEN.Tween({ progress: 0 })
+            .to({ progress: 1 }, 1100)
+            .onComplete(() => {
+                this.focusing = false;
+                this.refreshHoveredDisk();
+                this.hint.textContent = `${this.getDiskPersonName(index)} · CLICK AGAIN TO READ FILE`;
+                this.hint.style.display = 'block';
+            })
+            .start();
     }
 
     private openDiskFile(index: number) {

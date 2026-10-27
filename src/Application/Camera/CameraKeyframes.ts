@@ -44,10 +44,6 @@ const keys: { [key in CameraKey]: CameraKeyframe } = {
         position: new THREE.Vector3(2000, 900, 2000),
         focalPoint: new THREE.Vector3(1650, 0, 950),
     },
-    clock: {
-        position: new THREE.Vector3(975, -250, 1750),
-        focalPoint: new THREE.Vector3(1110, -270, 1200),
-    },
 };
 
 export class MonitorKeyframe extends CameraKeyframeInstance {
@@ -169,8 +165,3 @@ export class CoffeeKeyframe extends CameraKeyframeInstance {
     }
 }
 
-export class ClockKeyframe extends CameraKeyframeInstance {
-    constructor() {
-        super(keys.clock);
-    }
-}
