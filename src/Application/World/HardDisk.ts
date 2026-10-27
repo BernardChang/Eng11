@@ -290,6 +290,7 @@ export default class HardDisk {
         caseGroup.rotation.set(0, Math.PI / 2, 0);
         caseGroup.userData.homeY = diskHomeY;
         caseGroup.userData.profileId = profile?.id;
+        caseGroup.userData.personName = this.resolveDiskPersonName(index, profile);
         this.homeLocalPositions[index] = caseGroup.position.clone();
         this.homeLocalRotations[index] = caseGroup.rotation.clone();
         rack.add(caseGroup);
@@ -324,9 +325,6 @@ export default class HardDisk {
             }
         });
         caseGroup.add(model);
-        const diskLabel = this.createDiskLabel(index, profile);
-        caseGroup.userData.personName = diskLabel.userData.personName;
-        caseGroup.add(diskLabel);
         const outline = new THREE.LineSegments(
             new THREE.EdgesGeometry(new THREE.BoxBufferGeometry(342, 378, 30)),
             new THREE.LineBasicMaterial({
@@ -343,24 +341,9 @@ export default class HardDisk {
         this.createDiskHotspot(index);
     }
 
-    private createDiskLabel(index: number, profile?: CharacterDiskProfile): THREE.Mesh {
-        const defaults = [
-            {
-                name: 'Comrade Arlen Ogilvy',
-                dob: '1961-03-12',
-                job: 'Junior Anti-Sex League organizer',
-            },
-            { name: 'Mara Venn', dob: '1954-08-19', job: 'Records clerk' },
-            { name: 'Tomas Wren', dob: '1948-02-04', job: 'Transit scheduler' },
-            { name: 'Elia North', dob: '1960-11-23', job: 'Junior instructor' },
-            { name: 'Pavel Sorn', dob: '1939-06-01', job: 'Supply coordinator' },
-            { name: 'Iris Bell', dob: '1958-04-15', job: 'Community liaison' },
-            { name: 'Sera Quill', dob: '1946-09-27', job: 'Weather records analyst' },
-            { name: 'Oren Vale', dob: '1951-01-16', job: 'Civic transport inspector' },
-            { name: 'Cato Mire', dob: '1937-12-08', job: 'Public works foreman' },
-            { name: 'Nella Firth', dob: '1963-05-21', job: 'Junior archive assistant' },
-        ];
-        let details = profile || defaults[index] || defaults[0];
+    private resolveDiskPersonName(index: number, profile?: CharacterDiskProfile): string {
+        if (profile?.name?.trim()) return profile.name.trim();
+        let name = DEFAULT_DISK_NAMES[index] || 'Archive record';
         try {
             const saved = JSON.parse(
                 window.localStorage.getItem('truth-terminal-profiles-v4') || '{}'
@@ -371,75 +354,11 @@ export default class HardDisk {
                 (profile: { assignmentId?: string; name?: string }) =>
                     profile.assignmentId === assignmentId
             );
-            if (savedProfile?.name) {
-                details = {
-                    ...details,
-                    name: savedProfile.name,
-                    dob: savedProfile.dob || details.dob,
-                    job: savedProfile.job || details.job,
-                };
-            }
+            if (savedProfile?.name?.trim()) name = savedProfile.name.trim();
         } catch {
-            // Keep the built-in person label if there is no saved profile yet.
+            // Keep the built-in name if there is no saved profile yet.
         }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 384;
-        const context = canvas.getContext('2d');
-        if (context) {
-            // The model's white label is about 200 by 187 world units. Keep
-            // the name on a small inset panel within that printed area.
-            context.fillStyle = 'rgba(250, 248, 240, 0.94)';
-            context.fillRect(18, 126, 476, 132);
-            context.fillStyle = '#20211f';
-            context.textAlign = 'center';
-            context.textBaseline = 'middle';
-
-            const words = details.name.trim().split(/\s+/);
-            let fontSize = 62;
-            let lines: string[] = [];
-            while (fontSize >= 32) {
-                context.font = `700 ${fontSize}px Arial, sans-serif`;
-                lines = [];
-                let line = '';
-                for (const word of words) {
-                    const candidate = line ? `${line} ${word}` : word;
-                    if (context.measureText(candidate).width > 430 && line) {
-                        lines.push(line);
-                        line = word;
-                    } else {
-                        line = candidate;
-                    }
-                }
-                if (line) lines.push(line);
-                if (lines.length <= 2) break;
-                fontSize -= 2;
-            }
-
-            context.font = `700 ${fontSize}px Arial, sans-serif`;
-            const lineHeight = Math.min(72, fontSize * 1.16);
-            const firstY = canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
-            lines.forEach((line, lineIndex) => {
-                context.fillText(line, canvas.width / 2, firstY + lineIndex * lineHeight, 438);
-            });
-        }
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.encoding = THREE.sRGBEncoding;
-        const label = new THREE.Mesh(
-            new THREE.PlaneBufferGeometry(190, 176),
-            new THREE.MeshBasicMaterial({
-                map: texture,
-                side: THREE.DoubleSide,
-                depthTest: false,
-            })
-        );
-        label.name = `personnelDiskLabel${index + 1}`;
-        label.userData.personName = details.name;
-        // The local +X face points toward the viewer after the slot quarter-turn.
-        label.position.set(12, -49, 0);
-        label.renderOrder = 2;
-        return label;
+        return name;
     }
 
     private loadCreatedCharacterDisks() {
