@@ -73,7 +73,8 @@ export default class HardDisk {
         this.monitorScreen = monitorScreen;
         this.scene = this.application.scene;
         this.renderer = this.application.renderer.instance;
-        this.homePosition = new THREE.Vector3(-1950, -500, 650);
+        // Leave clear desk space between the disk rack and the paper stack.
+        this.homePosition = new THREE.Vector3(-2450, -500, 650);
         try {
             const stored = JSON.parse(
                 window.localStorage.getItem('truth-terminal-purged-disks-v1') || '[]'

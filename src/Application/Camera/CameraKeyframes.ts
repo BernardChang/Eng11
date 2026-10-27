@@ -33,8 +33,8 @@ const keys: { [key in CameraKey]: CameraKeyframe } = {
         focalPoint: new THREE.Vector3(0, 500, 0),
     },
     archive: {
-        position: new THREE.Vector3(-950, 380, 3850),
-        focalPoint: new THREE.Vector3(-1950, -210, 650),
+        position: new THREE.Vector3(-1450, 380, 3850),
+        focalPoint: new THREE.Vector3(-2450, -210, 650),
     },
     loading: {
         position: new THREE.Vector3(-30000, 30000, 30000),
