@@ -57,6 +57,7 @@ export default class World {
     update() {
         if (this.monitorScreen) this.monitorScreen.update();
         if (this.hardDisk) this.hardDisk.update();
+        if (this.deskClock) this.deskClock.update();
         if (this.environment) this.environment.update();
         if (this.coffeeSteam) this.coffeeSteam.update();
     }
