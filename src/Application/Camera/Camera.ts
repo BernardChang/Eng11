@@ -185,7 +185,7 @@ export default class Camera extends EventEmitter {
         const target = this.archiveFocusPoint?.clone() || defaultTarget;
         const archiveViewDirection = new THREE.Vector3(1000, 590, 3200).normalize();
         const position = this.archiveFocusPoint
-            ? target.clone().addScaledVector(archiveViewDirection, 950 * scale)
+            ? target.clone().addScaledVector(archiveViewDirection, 1650 * scale)
             : target
                   .clone()
                   .add(new THREE.Vector3(1000, 590, 3200).multiplyScalar(scale));
