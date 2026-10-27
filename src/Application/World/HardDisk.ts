@@ -371,49 +371,58 @@ export default class HardDisk {
 
         const canvas = document.createElement('canvas');
         canvas.width = 512;
-        canvas.height = 192;
+        canvas.height = 384;
         const context = canvas.getContext('2d');
         if (context) {
-            context.fillStyle = '#e5dfd1';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            context.strokeStyle = '#918b7f';
-            context.lineWidth = 5;
-            context.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
-            context.fillStyle = '#3e403d';
-            context.font = '18px monospace';
-            context.fillText(`PERSONNEL DISK ${String(index + 1).padStart(2, '0')}`, 24, 42);
-            context.font = 'bold 28px sans-serif';
-            const words = details.name.split(' ');
-            let line = '';
-            let y = 88;
-            for (const word of words) {
-                const next = line ? `${line} ${word}` : word;
-                if (context.measureText(next).width > 455 && line) {
-                    context.fillText(line, 24, y);
-                    line = word;
-                    y += 38;
-                } else {
-                    line = next;
+            // The model's white label is about 200 by 187 world units. Keep
+            // the name on a small inset panel within that printed area.
+            context.fillStyle = 'rgba(250, 248, 240, 0.94)';
+            context.fillRect(18, 126, 476, 132);
+            context.fillStyle = '#20211f';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+
+            const words = details.name.trim().split(/\s+/);
+            let fontSize = 62;
+            let lines: string[] = [];
+            while (fontSize >= 32) {
+                context.font = `700 ${fontSize}px Arial, sans-serif`;
+                lines = [];
+                let line = '';
+                for (const word of words) {
+                    const candidate = line ? `${line} ${word}` : word;
+                    if (context.measureText(candidate).width > 430 && line) {
+                        lines.push(line);
+                        line = word;
+                    } else {
+                        line = candidate;
+                    }
                 }
+                if (line) lines.push(line);
+                if (lines.length <= 2) break;
+                fontSize -= 2;
             }
-            context.fillText(line, 24, y);
-            context.font = '17px monospace';
-            context.fillText(`BORN ${details.dob}`, 24, 158);
-            context.fillText(details.job.toUpperCase(), 24, 181);
+
+            context.font = `700 ${fontSize}px Arial, sans-serif`;
+            const lineHeight = Math.min(72, fontSize * 1.16);
+            const firstY = canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
+            lines.forEach((line, lineIndex) => {
+                context.fillText(line, canvas.width / 2, firstY + lineIndex * lineHeight, 438);
+            });
         }
         const texture = new THREE.CanvasTexture(canvas);
         texture.encoding = THREE.sRGBEncoding;
         const label = new THREE.Mesh(
-            new THREE.PlaneBufferGeometry(270, 102),
+            new THREE.PlaneBufferGeometry(190, 176),
             new THREE.MeshBasicMaterial({
                 map: texture,
                 side: THREE.DoubleSide,
-                depthTest: true,
+                depthTest: false,
             })
         );
         label.name = `personnelDiskLabel${index + 1}`;
         // The local +X face points toward the viewer after the slot quarter-turn.
-        label.position.set(12, -96, 0);
+        label.position.set(12, -49, 0);
         label.renderOrder = 2;
         return label;
     }
