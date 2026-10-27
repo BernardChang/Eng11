@@ -89,6 +89,7 @@ export default class HardDisk {
                 this.hotspots[index].style.display = 'none';
             }
         });
+        this.reflowRackDisks();
 
         this.hint = document.createElement('div');
         this.hint.textContent = 'SELECT A PERSONNEL DISK';
@@ -440,25 +441,51 @@ export default class HardDisk {
             return;
         }
 
-        this.createdDiskSlots = ids;
-        this.disks.length = CASE_COUNT + ids.length;
-        const validIds = [...ids];
-        ids.forEach((id, offset) => {
+        const validIds: string[] = [];
+        let clearedStalePurge = false;
+        ids.forEach((id) => {
             if (!id) return;
             const profile = cachedProfiles[id] || profiles.find((entry) => entry.id === id);
-            if (!profile || !profile.name || !profile.dob || !profile.job) {
-                validIds[offset] = null;
-                return;
-            }
+            if (!profile || !profile.name || !profile.dob || !profile.job) return;
+            const offset = validIds.length;
+            validIds.push(id);
+            const index = CASE_COUNT + offset;
+            clearedStalePurge = this.purgedDisks.delete(index) || clearedStalePurge;
             this.createdProfileIds.add(id);
-            this.createDiskSlot(CASE_COUNT + offset, profile, this.rack);
+            this.createDiskSlot(index, profile, this.rack);
         });
         this.createdDiskSlots = validIds;
+        if (clearedStalePurge) {
+            try {
+                window.localStorage.setItem(
+                    'truth-terminal-purged-disks-v1',
+                    JSON.stringify(Array.from(this.purgedDisks))
+                );
+            } catch {
+                // Active profile disks stay available for this session.
+            }
+        }
         try {
             window.localStorage.setItem(CREATED_DISKS_KEY, JSON.stringify(this.createdDiskSlots));
         } catch {
             // Existing disks remain available for this session.
         }
+    }
+
+    /** Keep all live disks packed into the earliest visible rack slots. */
+    private reflowRackDisks() {
+        let storageSlot = 0;
+        for (let index = 0; index < MAX_DISKS; index++) {
+            const disk = this.disks[index];
+            const home = this.homeLocalPositions[index];
+            if (!disk || !home || !disk.visible || this.purgedDisks.has(index)) continue;
+
+            const x = (storageSlot - (MAX_DISKS - 1) / 2) * 72;
+            home.x = x;
+            disk.position.x = x;
+            storageSlot++;
+        }
+        this.rack.updateMatrixWorld(true);
     }
 
     private refreshCreatedCharacterDisks() {
@@ -483,6 +510,7 @@ export default class HardDisk {
         this.createdProfileIds.clear();
         this.createdDiskSlots = [];
         this.loadCreatedCharacterDisks();
+        this.reflowRackDisks();
     }
 
     private saveCreatedDiskSlots() {
@@ -587,6 +615,7 @@ export default class HardDisk {
             disk.rotation.copy(this.homeLocalRotations[index]);
             disk.scale.setScalar(1);
             disk.visible = true;
+            this.reflowRackDisks();
             this.camera.transition(CameraKey.ARCHIVE, 1050);
             this.pendingProfileIds.delete(profileId);
             window.setTimeout(() => this.monitorScreen.setFocusLocked(false), 1100);
@@ -901,6 +930,7 @@ export default class HardDisk {
         delete this.outlines[index];
         delete this.homeLocalPositions[index];
         delete this.homeLocalRotations[index];
+        this.reflowRackDisks();
         this.inserted = false;
         this.ejecting = false;
         this.fileOpened = false;
@@ -1073,6 +1103,7 @@ export default class HardDisk {
                 delete this.homeLocalPositions[index];
                 delete this.homeLocalRotations[index];
             }
+            this.reflowRackDisks();
             this.inserted = false;
             this.ejecting = false;
             this.purging = false;
