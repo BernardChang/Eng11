@@ -6,7 +6,8 @@ import MonitorScreen from './MonitorScreen';
 import UIEventBus from '../UI/EventBus';
 
 const CASE_COUNT = 10;
-const MAX_DISKS = CASE_COUNT + 3;
+const CREATED_DISK_CAPACITY = 10;
+const MAX_DISKS = CASE_COUNT + CREATED_DISK_CAPACITY;
 const CREATED_DISKS_KEY = 'truth-terminal-created-disks-v1';
 
 type CharacterDiskProfile = {
@@ -222,14 +223,17 @@ export default class HardDisk {
 
         // Long, slotted archive holder. The disks stay upright and parallel,
         // with their broad faces aimed forward and the row turned sideways.
+        // Built-in disks and character-created disks share one evenly spaced
+        // 20-position storage row.
+        const storageWidth = (CASE_COUNT + CREATED_DISK_CAPACITY - 1) * 72 + 72;
         const base = new THREE.Mesh(
-            new THREE.BoxBufferGeometry(1200, 58, 500),
+            new THREE.BoxBufferGeometry(storageWidth, 58, 500),
             orange
         );
         base.name = 'diskTrayBase';
         base.position.y = 29;
         rack.add(base);
-        const sideWalls = new THREE.BoxBufferGeometry(1200, 105, 36);
+        const sideWalls = new THREE.BoxBufferGeometry(storageWidth, 105, 36);
         const leftWall = new THREE.Mesh(sideWalls, orangeLight);
         leftWall.name = 'diskTrayLeftWall';
         leftWall.position.set(0, 66, -232);
@@ -238,22 +242,13 @@ export default class HardDisk {
         rightWall.name = 'diskTrayRightWall';
         rightWall.position.set(0, 66, 232);
         rack.add(rightWall);
-        for (let divider = -4; divider <= 4; divider++) {
+        for (let divider = 1; divider < CASE_COUNT + CREATED_DISK_CAPACITY; divider++) {
             const rib = new THREE.Mesh(
                 new THREE.BoxBufferGeometry(8, 14, 462),
                 orangeLight
             );
-            rib.name = `diskSlotDivider${divider + 3}`;
-            rib.position.set(divider * 72, 64, 0);
-            rack.add(rib);
-        }
-        for (const x of [360, 432, 504]) {
-            const rib = new THREE.Mesh(
-                new THREE.BoxBufferGeometry(8, 14, 462),
-                orangeLight
-            );
-            rib.name = `diskSlotDividerCustom${x}`;
-            rib.position.set(x, 64, 0);
+            rib.name = `diskSlotDivider${divider}`;
+            rib.position.set((divider - (CASE_COUNT + CREATED_DISK_CAPACITY) / 2) * 72, 64, 0);
             rack.add(rib);
         }
 
@@ -273,7 +268,14 @@ export default class HardDisk {
         const caseGroup = new THREE.Group();
         caseGroup.name = `personnelDisk${index + 1}`;
         const diskHomeY = 245;
-        const diskHomeX = (index - (CASE_COUNT - 1) / 2) * 72;
+        // Put new character disks into the empty spaces between the built-in
+        // disks, filling the row from left to right.
+        const storageSlot =
+            index < CASE_COUNT
+                ? index * 2
+                : (index - CASE_COUNT) * 2 + 1;
+        const diskHomeX =
+            (storageSlot - (CASE_COUNT + CREATED_DISK_CAPACITY - 1) / 2) * 72;
         caseGroup.position.set(diskHomeX, diskHomeY, 0);
         caseGroup.rotation.set(0, Math.PI / 2, 0);
         caseGroup.userData.homeY = diskHomeY;
