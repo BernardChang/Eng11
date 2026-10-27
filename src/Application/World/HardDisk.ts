@@ -268,12 +268,9 @@ export default class HardDisk {
         const caseGroup = new THREE.Group();
         caseGroup.name = `personnelDisk${index + 1}`;
         const diskHomeY = 245;
-        // Put new character disks into the empty spaces between the built-in
-        // disks, filling the row from left to right.
-        const storageSlot =
-            index < CASE_COUNT
-                ? index * 2
-                : (index - CASE_COUNT) * 2 + 1;
+        // Keep built-in disks first, then place created disks in consecutive
+        // slots from left to right instead of alternating between built-ins.
+        const storageSlot = index;
         const diskHomeX =
             (storageSlot - (CASE_COUNT + CREATED_DISK_CAPACITY - 1) / 2) * 72;
         caseGroup.position.set(diskHomeX, diskHomeY, 0);
