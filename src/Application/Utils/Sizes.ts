@@ -8,17 +8,32 @@ export default class Sizes extends EventEmitter {
     constructor() {
         super();
 
-        // Setup
-        const viewport = window.visualViewport;
-        this.width = viewport?.width || document.documentElement.clientWidth || window.innerWidth;
-        this.height = viewport?.height || window.innerHeight;
+        // Size the renderers to the actual fixed viewport layers. Using the
+        // visual viewport can make a canvas smaller than the page at browser
+        // zoom levels, leaving the unrendered area black.
+        const readViewport = () => {
+            const bounds = document
+                .querySelector('#webgl')
+                ?.getBoundingClientRect();
+            return {
+                width: Math.round(
+                    bounds?.width || document.documentElement.clientWidth || window.innerWidth
+                ),
+                height: Math.round(
+                    bounds?.height || document.documentElement.clientHeight || window.innerHeight
+                ),
+            };
+        };
+        const viewport = readViewport();
+        this.width = viewport.width;
+        this.height = viewport.height;
         this.pixelRatio = Math.min(window.devicePixelRatio, 2);
 
         // Resize event
         const resize = (_event?: Event, force = false) => {
-            const currentViewport = window.visualViewport;
-            const width = currentViewport?.width || document.documentElement.clientWidth || window.innerWidth;
-            const height = currentViewport?.height || window.innerHeight;
+            const currentViewport = readViewport();
+            const width = currentViewport.width;
+            const height = currentViewport.height;
             const pixelRatio = Math.min(window.devicePixelRatio, 2);
             const changed =
                 width !== this.width ||
@@ -33,6 +48,10 @@ export default class Sizes extends EventEmitter {
         window.addEventListener('resize', resize);
         window.visualViewport?.addEventListener('resize', resize);
         window.addEventListener('orientationchange', resize);
+        const viewportLayer = document.querySelector('#webgl');
+        if (viewportLayer && 'ResizeObserver' in window) {
+            new ResizeObserver(() => resize()).observe(viewportLayer);
+        }
 
         // Some browsers settle their available viewport just after the app's
         // first frame. Re-sync then so the scene and its HTML layers cannot

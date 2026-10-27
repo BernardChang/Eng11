@@ -15,6 +15,7 @@ import {
     DeskKeyframe,
     ArchiveKeyframe,
     CoffeeKeyframe,
+    ClockKeyframe,
 } from './CameraKeyframes';
 
 export enum CameraKey {
@@ -24,6 +25,7 @@ export enum CameraKey {
     DESK = 'desk',
     ARCHIVE = 'archive',
     COFFEE = 'coffee',
+    CLOCK = 'clock',
 }
 export default class Camera extends EventEmitter {
     application: Application;
@@ -61,6 +63,7 @@ export default class Camera extends EventEmitter {
             desk: new DeskKeyframe(),
             archive: new ArchiveKeyframe(),
             coffee: new CoffeeKeyframe(),
+            clock: new ClockKeyframe(),
         };
         this.updateMonitorFraming();
 
@@ -82,6 +85,11 @@ export default class Camera extends EventEmitter {
                 this.targetKeyframe === CameraKey.DESK
             ) {
                 this.transition(CameraKey.IDLE);
+            } else if (
+                this.currentKeyframe === CameraKey.CLOCK ||
+                this.targetKeyframe === CameraKey.CLOCK
+            ) {
+                this.transition(CameraKey.DESK);
             }
         });
 

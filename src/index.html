@@ -33,6 +33,14 @@
     #css { z-index: 2; }
     #ui { z-index: 3; }
 
+    /* Keep the rendered surface aligned with the full fixed viewport layer,
+       even if a browser reports a smaller visual viewport after zooming. */
+    #webgl > canvas,
+    #css > div {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
     #ui-app {
       width: 100%;
       height: 100%;
