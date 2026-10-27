@@ -8,6 +8,7 @@ import CoffeeSteam from './CoffeeSteam';
 import Cursor from './Cursor';
 import Hitboxes from './Hitboxes';
 import HardDisk from './HardDisk';
+import DeskClock from './DeskClock';
 import AudioManager from '../Audio/AudioManager';
 export default class World {
     application: Application;
@@ -20,6 +21,7 @@ export default class World {
     computerSetup: ComputerSetup;
     monitorScreen: MonitorScreen;
     hardDisk: HardDisk;
+    deskClock: DeskClock;
     coffeeSteam: CoffeeSteam;
     cursor: Cursor;
     audioManager: AudioManager;
@@ -36,6 +38,9 @@ export default class World {
             this.computerSetup = new ComputerSetup();
             this.monitorScreen = new MonitorScreen();
             this.hardDisk = new HardDisk(this.monitorScreen);
+            this.deskClock = new DeskClock(
+                this.resources.items.gltfModel.deskAlarmClockModel
+            );
             this.coffeeSteam = new CoffeeSteam();
             const coffeeCup = this.resources.items.gltfModel.decorModel.scene.getObjectByName(
                 'coffee'

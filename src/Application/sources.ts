@@ -35,6 +35,11 @@ const sources: Resource[] = [
         path: 'models/Decor/baked_decor.jpg',
     },
     {
+        name: 'deskAlarmClockModel',
+        type: 'gltfModel',
+        path: 'models/Decor/desk_alarm_clock.glb',
+    },
+    {
         name: 'monitorSmudgeTexture',
         type: 'texture',
         path: 'textures/monitor/layers/compressed/smudges.jpg',
