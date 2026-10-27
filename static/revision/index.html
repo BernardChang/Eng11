@@ -136,15 +136,16 @@ function localCloudRecords(){
 }
 function applyCloudRecords(snapshot){
  const records=snapshot.docs.map(doc=>({...doc.data(),id:doc.id}));
- const history=[],cache={},slots=Array.from({length:10},()=>null),localIds=createdDiskIds(),localCache=diskProfileCache();
+ const history=[],cache={},slots=[],diskRecords=[],localIds=createdDiskIds(),localCache=diskProfileCache();
  for(const profile of records){
   const localOffset=localIds.indexOf(profile.id);
   // A just-created disk can briefly receive an older cached "history" snapshot.
   // Keep its local slot until the disk status write reaches Firestore.
-  if(profile.status==='history'&&localOffset>=0){slots[localOffset]=profile.id;cache[profile.id]=localCache[profile.id]||profile;continue}
+  if(profile.status==='history'&&localOffset>=0){diskRecords.push({profile:localCache[profile.id]||profile,slot:localOffset});continue}
   if(profile.status==='history'){history.push(profile);continue}
-  if(profile.status==='disk'&&Number.isInteger(profile.diskSlot)&&profile.diskSlot>=10&&profile.diskSlot<20){const offset=profile.diskSlot-10;if(!slots[offset]){slots[offset]=profile.id;cache[profile.id]=profile}}
+  if(profile.status==='disk'){const offset=Number.isInteger(profile.diskSlot)&&profile.diskSlot>=10&&profile.diskSlot<20?profile.diskSlot-10:localOffset;if(offset>=0&&!diskRecords.some(item=>item.profile.id===profile.id))diskRecords.push({profile,slot:offset})}
  }
+ diskRecords.sort((a,b)=>a.slot-b.slot);diskRecords.slice(0,10).forEach(({profile},offset)=>{slots[offset]=profile.id;cache[profile.id]=profile});
  data.profiles=history.sort((a,b)=>String(b.filedAt).localeCompare(String(a.filedAt)));
  localStorage.setItem('truth-terminal-disk-profiles-v1',JSON.stringify(cache));
  localStorage.setItem('truth-terminal-created-disks-v1',JSON.stringify(Array.from({length:slots.length},(_,i)=>slots[i]||null)));

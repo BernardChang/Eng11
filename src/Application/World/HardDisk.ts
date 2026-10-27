@@ -432,9 +432,8 @@ export default class HardDisk {
                 window.localStorage.getItem('truth-terminal-disk-profiles-v1') || '{}'
             );
             ids = Array.isArray(storedIds)
-                ? storedIds.slice(0, MAX_DISKS - CASE_COUNT).map((id) =>
-                      typeof id === 'string' ? id : null
-                  )
+                ? [...new Set(storedIds.filter((id): id is string => typeof id === 'string'))]
+                      .slice(0, MAX_DISKS - CASE_COUNT)
                 : [];
             profiles = Array.isArray(saved.profiles) ? saved.profiles : [];
         } catch {
