@@ -9,6 +9,18 @@ const CASE_COUNT = 10;
 const CREATED_DISK_CAPACITY = 10;
 const MAX_DISKS = CASE_COUNT + CREATED_DISK_CAPACITY;
 const CREATED_DISKS_KEY = 'truth-terminal-created-disks-v1';
+const DEFAULT_DISK_NAMES = [
+    'Comrade Arlen Ogilvy',
+    'Mara Venn',
+    'Tomas Wren',
+    'Elia North',
+    'Pavel Sorn',
+    'Iris Bell',
+    'Sera Quill',
+    'Oren Vale',
+    'Cato Mire',
+    'Nella Firth',
+];
 
 type CharacterDiskProfile = {
     id: string;
@@ -312,7 +324,9 @@ export default class HardDisk {
             }
         });
         caseGroup.add(model);
-        caseGroup.add(this.createDiskLabel(index, profile));
+        const diskLabel = this.createDiskLabel(index, profile);
+        caseGroup.userData.personName = diskLabel.userData.personName;
+        caseGroup.add(diskLabel);
         const outline = new THREE.LineSegments(
             new THREE.EdgesGeometry(new THREE.BoxBufferGeometry(342, 378, 30)),
             new THREE.LineBasicMaterial({
@@ -421,6 +435,7 @@ export default class HardDisk {
             })
         );
         label.name = `personnelDiskLabel${index + 1}`;
+        label.userData.personName = details.name;
         // The local +X face points toward the viewer after the slot quarter-turn.
         label.position.set(12, -49, 0);
         label.renderOrder = 2;
@@ -668,8 +683,9 @@ export default class HardDisk {
     private createDiskHotspot(index: number) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.setAttribute('aria-label', `Select personnel disk ${index + 1}`);
-        button.title = `Personnel disk ${index + 1} — hover to inspect, click to focus`;
+        const personName = this.getDiskPersonName(index);
+        button.setAttribute('aria-label', `Select ${personName}`);
+        button.title = `${personName} — hover to inspect, click to focus`;
         button.style.cssText =
             'position:fixed;display:none;opacity:0;background:transparent;border:0;padding:0;z-index:10002;cursor:pointer;pointer-events:auto;';
         button.addEventListener('pointerenter', () => {
@@ -692,6 +708,13 @@ export default class HardDisk {
         this.hotspots[index] = button;
     }
 
+    private getDiskPersonName(index: number): string {
+        const name = this.disks[index]?.userData.personName;
+        return typeof name === 'string' && name.trim()
+            ? name
+            : DEFAULT_DISK_NAMES[index] || 'Archive record';
+    }
+
     private setHovered(index: number | undefined) {
         const archiveIsFocused =
             this.camera.currentKeyframe === CameraKey.ARCHIVE ||
@@ -711,7 +734,7 @@ export default class HardDisk {
         if (index === undefined || !archiveIsFocused) {
             this.hint.style.display = 'none';
         } else {
-            this.hint.textContent = `DISK ${String(index + 1).padStart(2, '0')} · CLICK TO FOCUS`;
+            this.hint.textContent = `${this.getDiskPersonName(index)} · CLICK TO FOCUS`;
             this.hint.style.display = 'block';
         }
     }
