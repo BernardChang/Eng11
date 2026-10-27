@@ -5,7 +5,7 @@ import Application from '../Application';
 import Debug from '../Utils/Debug';
 import Resources from '../Utils/Resources';
 import Sizes from '../Utils/Sizes';
-import Camera from '../Camera/Camera';
+import Camera, { CameraKey } from '../Camera/Camera';
 import EventEmitter from '../Utils/EventEmitter';
 
 const SCREEN_SIZE = { w: 1280, h: 1024 };
@@ -62,11 +62,21 @@ export default class MonitorScreen extends EventEmitter {
                 // @ts-ignore
                 this.inComputer = event.inComputer;
 
-                if (!this.focusLocked && this.inComputer && !this.prevInComputer) {
+                if (
+                    !this.focusLocked &&
+                    !this.isArchiveView() &&
+                    this.inComputer &&
+                    !this.prevInComputer
+                ) {
                     this.camera.trigger('enterMonitor');
                 }
 
-                if (!this.focusLocked && !this.inComputer && this.prevInComputer) {
+                if (
+                    !this.focusLocked &&
+                    !this.isArchiveView() &&
+                    !this.inComputer &&
+                    this.prevInComputer
+                ) {
                     this.camera.trigger('leftMonitor');
                 }
 
@@ -85,7 +95,12 @@ export default class MonitorScreen extends EventEmitter {
                 // Some browsers do not send a useful pointer-move into a
                 // CSS3D iframe until it receives focus. Enter the monitor on
                 // the first click as well, so the screen remains discoverable.
-                if (!this.focusLocked && this.inComputer && !this.prevInComputer) {
+                if (
+                    !this.focusLocked &&
+                    !this.isArchiveView() &&
+                    this.inComputer &&
+                    !this.prevInComputer
+                ) {
                     this.camera.trigger('enterMonitor');
                 }
 
@@ -101,6 +116,13 @@ export default class MonitorScreen extends EventEmitter {
     setFocusLocked(locked: boolean) {
         this.focusLocked = locked;
         this.prevInComputer = false;
+    }
+
+    private isArchiveView() {
+        return (
+            this.camera.currentKeyframe === CameraKey.ARCHIVE ||
+            this.camera.targetKeyframe === CameraKey.ARCHIVE
+        );
     }
 
     /**
@@ -161,7 +183,7 @@ export default class MonitorScreen extends EventEmitter {
         // original monitor instead of loading the remote portfolio iframe.
         // Use a new URL whenever the embedded terminal changes so Chrome does
         // not keep displaying an older cached header/layout after deployment.
-        iframe.src = '/revision/index.html?v=20261026-story-tasks-1';
+        iframe.src = '/revision/index.html?v=20261027-disk-storage-focus-1';
         iframe.style.width = IFRAME_SIZE.w + 'px';
         iframe.style.height = IFRAME_SIZE.h + 'px';
         iframe.style.opacity = '1';
