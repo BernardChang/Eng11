@@ -10,8 +10,12 @@ module.exports = async function generateArticle(req, res) {
     return res.status(405).json({ error: 'Use POST to generate an article.' });
   }
 
-  const token = process.env.AI_GATEWAY_API_KEY || req.headers['x-vercel-oidc-token'] || process.env.VERCEL_OIDC_TOKEN;
-  if (!token) {
+  const gatewayCredentials = [
+    process.env.AI_GATEWAY_API_KEY,
+    req.headers['x-vercel-oidc-token'],
+    process.env.VERCEL_OIDC_TOKEN,
+  ].filter((value, index, values) => value && values.indexOf(value) === index);
+  if (!gatewayCredentials.length) {
     return res.status(503).json({
       error: 'AI article generation is not configured for this deployment yet. Add AI Gateway access in Vercel, then try again.',
     });
@@ -44,26 +48,36 @@ Biography: ${bio}
 Return only valid JSON with exactly two string keys: {"title":"...","body":"..."}. The body should be 3-5 concise paragraphs, 180-280 words total, with a newspaper headline tone and specific details grounded in this fictional profile.`;
 
   try {
-    const response = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: process.env.AI_GATEWAY_MODEL || 'google/gemini-2.5-flash',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.8,
-        max_tokens: 900,
-      }),
+    const requestBody = JSON.stringify({
+      model: process.env.AI_GATEWAY_MODEL || 'google/gemini-2.5-flash',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.8,
+      max_tokens: 900,
     });
+    let response;
+    for (let index = 0; index < gatewayCredentials.length; index += 1) {
+      response = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${gatewayCredentials[index]}`,
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      });
+      // A key can be valid but lack permission for this deployment. On auth
+      // rejection, try Vercel's request-scoped OIDC token before giving up.
+      if (response.status !== 401 && response.status !== 403) break;
+      if (index < gatewayCredentials.length - 1) await response.body?.cancel();
+    }
 
     if (!response.ok) {
       const status = response.status;
-      console.error('AI Gateway article request failed with status', status);
+      const gatewayError = await response.json().catch(() => ({}));
+      const gatewayCode = clean(gatewayError.error && gatewayError.error.type, 80);
+      console.error('AI Gateway article request failed', { status, code: gatewayCode || 'unknown' });
       return res.status(status === 401 || status === 403 ? 503 : 502).json({
         error: status === 401 || status === 403
-          ? 'AI Gateway access is not available for this deployment. Check the Vercel AI Gateway setup.'
+          ? `AI Gateway denied access (${gatewayCode || status}). Check the key or Vercel team access.`
           : 'The article service could not complete this draft. Please try again shortly.',
       });
     }
