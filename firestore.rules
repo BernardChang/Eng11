@@ -35,9 +35,42 @@ service cloud.firestore {
         && (profile.status != 'disk' || (profile.diskSlot is int && profile.diskSlot >= 10 && profile.diskSlot <= 12));
     }
 
+
+    function validArticle(articleId) {
+      let article = request.resource.data;
+      return article.keys().hasAll([
+          'id', 'characterId', 'characterName', 'title', 'body', 'angle', 'createdAt', 'fictional'
+        ])
+        && article.keys().hasOnly([
+          'id', 'characterId', 'characterName', 'title', 'body', 'angle', 'createdAt', 'fictional', 'updatedAt'
+        ])
+        && article.id == articleId
+        && article.characterId is string
+        && article.characterId.size() <= 120
+        && article.characterName is string
+        && article.characterName.size() > 0
+        && article.characterName.size() <= 60
+        && article.title is string
+        && article.title.size() > 0
+        && article.title.size() <= 140
+        && article.body is string
+        && article.body.size() > 0
+        && article.body.size() <= 10000
+        && article.angle is string
+        && article.angle.size() <= 60
+        && article.createdAt is string
+        && article.fictional == true;
+    }
+
     match /profiles/{profileId} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null && validProfile(profileId);
+      allow delete: if false;
+    }
+
+    match /articles/{articleId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && validArticle(articleId);
       allow delete: if false;
     }
   }

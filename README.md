@@ -30,3 +30,15 @@ firebase deploy --only firestore:rules --project eng-11-6283b
 ```
 
 Drafts and restore checkpoints remain in the current browser's local storage. Firebase must have Anonymous sign-in enabled for cloud syncing to work.
+
+## Fictional AI article desk
+
+The History Book now includes **Generate Article** and **Article Library** tabs. Article generation runs through the server-side Vercel Function at `/api/generate-article`; model credentials are never placed in browser code. On Vercel, the endpoint uses the deployment's `VERCEL_OIDC_TOKEN` for AI Gateway access. If the project does not have Gateway access through OIDC, configure `AI_GATEWAY_API_KEY` as a Vercel Environment Variable. The default model is `google/gemini-2.5-flash`; `AI_GATEWAY_MODEL` can override it with another current model ID.
+
+The library saves generated article text in local storage and syncs it to Firestore when Firebase anonymous authentication is available. Deploy the updated Firestore rules for cloud article syncing:
+
+```bash
+firebase deploy --only firestore:rules --project eng-11-6283b
+```
+
+Generated stories are fictional, clearly labeled as simulations, and scoped to the project's invented characters and setting.
