@@ -75,9 +75,12 @@ Return only valid JSON with exactly two string keys: {"title":"...","body":"..."
       const gatewayError = await response.json().catch(() => ({}));
       const gatewayCode = clean(gatewayError.error && gatewayError.error.type, 80);
       console.error('AI Gateway article request failed', { status, code: gatewayCode || 'unknown' });
+      const accessMessage = gatewayCode === 'customer_verification_required'
+        ? 'Vercel requires a verified payment method on this team to activate AI Gateway access. Check the team billing settings, then try again.'
+        : `AI Gateway denied access (${gatewayCode || status}). Check the key or Vercel team access.`;
       return res.status(status === 401 || status === 403 ? 503 : 502).json({
         error: status === 401 || status === 403
-          ? `AI Gateway denied access (${gatewayCode || status}). Check the key or Vercel team access.`
+          ? accessMessage
           : 'The article service could not complete this draft. Please try again shortly.',
       });
     }
