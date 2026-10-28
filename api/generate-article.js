@@ -56,9 +56,17 @@ Return only valid JSON with exactly two string keys: {"title":"...","body":"..."
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 900,
+            maxOutputTokens: 1800,
             responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                title: { type: 'STRING' },
+                body: { type: 'STRING' },
+              },
+              required: ['title', 'body'],
+            },
+            thinkingConfig: { thinkingLevel: 'low' },
           },
         }),
       },
@@ -82,7 +90,9 @@ Return only valid JSON with exactly two string keys: {"title":"...","body":"..."
     const parts = payload.candidates && payload.candidates[0] && payload.candidates[0].content
       ? payload.candidates[0].content.parts
       : [];
-    const content = Array.isArray(parts) ? parts.map((part) => part.text || '').join('') : '';
+    const content = Array.isArray(parts)
+      ? parts.filter((part) => part.text && !part.thought).map((part) => part.text).join('')
+      : '';
     const text = typeof content === 'string' ? content.trim() : '';
     const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     const firstBrace = jsonText.indexOf('{');
@@ -90,8 +100,8 @@ Return only valid JSON with exactly two string keys: {"title":"...","body":"..."
     const parsed = firstBrace >= 0 && lastBrace > firstBrace
       ? JSON.parse(jsonText.slice(firstBrace, lastBrace + 1))
       : null;
-    const title = clean(parsed && parsed.title, 140);
-    const body = clean(parsed && parsed.body, 10000);
+    const title = clean(parsed && (parsed.title || parsed.headline), 140);
+    const body = clean(parsed && (parsed.body || parsed.article || parsed.content), 10000);
     if (!title || !body) throw new Error('Model response did not contain the requested article fields.');
     return res.status(200).json({ title, body });
   } catch (error) {
