@@ -10,14 +10,10 @@ module.exports = async function generateArticle(req, res) {
     return res.status(405).json({ error: 'Use POST to generate an article.' });
   }
 
-  const gatewayCredentials = [
-    process.env.AI_GATEWAY_API_KEY,
-    req.headers['x-vercel-oidc-token'],
-    process.env.VERCEL_OIDC_TOKEN,
-  ].filter((value, index, values) => value && values.indexOf(value) === index);
-  if (!gatewayCredentials.length) {
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!geminiKey) {
     return res.status(503).json({
-      error: 'AI article generation is not configured for this deployment yet. Add AI Gateway access in Vercel, then try again.',
+      error: 'Gemini is not configured yet. Add a GEMINI_API_KEY secret to this Vercel project, then redeploy.',
     });
   }
 
@@ -48,47 +44,45 @@ Biography: ${bio}
 Return only valid JSON with exactly two string keys: {"title":"...","body":"..."}. The body should be 3-5 concise paragraphs, 180-280 words total, with a newspaper headline tone and specific details grounded in this fictional profile.`;
 
   try {
-    const requestBody = JSON.stringify({
-      model: process.env.AI_GATEWAY_MODEL || 'google/gemini-2.5-flash',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.8,
-      max_tokens: 900,
-    });
-    let response;
-    for (let index = 0; index < gatewayCredentials.length; index += 1) {
-      response = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+    const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${gatewayCredentials[index]}`,
+          'x-goog-api-key': geminiKey,
           'Content-Type': 'application/json',
         },
-        body: requestBody,
-      });
-      // A key can be valid but lack permission for this deployment. On auth
-      // rejection, try Vercel's request-scoped OIDC token before giving up.
-      if (response.status !== 401 && response.status !== 403) break;
-      if (index < gatewayCredentials.length - 1) await response.body?.cancel();
-    }
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.8,
+            maxOutputTokens: 900,
+            responseMimeType: 'application/json',
+          },
+        }),
+      },
+    );
 
     if (!response.ok) {
       const status = response.status;
-      const gatewayError = await response.json().catch(() => ({}));
-      const gatewayCode = clean(gatewayError.error && gatewayError.error.type, 80);
-      console.error('AI Gateway article request failed', { status, code: gatewayCode || 'unknown' });
-      const accessMessage = gatewayCode === 'customer_verification_required'
-        ? 'Vercel requires a verified payment method on this team to activate AI Gateway access. Check the team billing settings, then try again.'
-        : `AI Gateway denied access (${gatewayCode || status}). Check the key or Vercel team access.`;
+      const googleError = await response.json().catch(() => ({}));
+      const googleCode = clean(googleError.error && googleError.error.status, 80);
+      console.error('Gemini article request failed', { status, code: googleCode || 'unknown' });
       return res.status(status === 401 || status === 403 ? 503 : 502).json({
         error: status === 401 || status === 403
-          ? accessMessage
+          ? 'Gemini rejected the API key. Check that the Vercel GEMINI_API_KEY is current and enabled for the Gemini API.'
+          : status === 429
+            ? 'Gemini is temporarily rate limited. Wait a moment and try again.'
           : 'The article service could not complete this draft. Please try again shortly.',
       });
     }
 
     const payload = await response.json();
-    const content = payload.choices && payload.choices[0] && payload.choices[0].message
-      ? payload.choices[0].message.content
-      : '';
+    const parts = payload.candidates && payload.candidates[0] && payload.candidates[0].content
+      ? payload.candidates[0].content.parts
+      : [];
+    const content = Array.isArray(parts) ? parts.map((part) => part.text || '').join('') : '';
     const text = typeof content === 'string' ? content.trim() : '';
     const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     const firstBrace = jsonText.indexOf('{');

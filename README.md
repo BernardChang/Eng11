@@ -33,7 +33,7 @@ Drafts and restore checkpoints remain in the current browser's local storage. Fi
 
 ## Fictional AI article desk
 
-The History Book now includes **Generate Article** and **Article Library** tabs. Article generation runs through the server-side Vercel Function at `/api/generate-article`; model credentials are never placed in browser code. The endpoint uses `VERCEL_OIDC_TOKEN` when Vercel OIDC is enabled for the project, or `AI_GATEWAY_API_KEY` otherwise. The current production project has neither configured yet, so generation will show a setup message until AI Gateway access is added. Add the key only as a Vercel Environment Variable; never place it in browser code or commit it. The default model is `google/gemini-2.5-flash`; `AI_GATEWAY_MODEL` can override it with another current model ID.
+The History Book includes **Generate Article** and **Article Library** tabs. Article generation runs through the server-side Vercel Function at `/api/generate-article` and calls the Gemini API directly. Add a Google AI Studio key as the sensitive Vercel environment variable `GEMINI_API_KEY` (or `GOOGLE_API_KEY`); never put it in browser code or commit it. The default model is `gemini-3.8-flash`; `GEMINI_MODEL` can override it.
 
 The library saves generated article text in local storage and syncs it to Firestore when Firebase anonymous authentication is available. Deploy the updated Firestore rules for cloud article syncing:
 
