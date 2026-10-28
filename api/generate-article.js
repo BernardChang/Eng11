@@ -10,7 +10,7 @@ module.exports = async function generateArticle(req, res) {
     return res.status(405).json({ error: 'Use POST to generate an article.' });
   }
 
-  const token = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+  const token = process.env.AI_GATEWAY_API_KEY || req.headers['x-vercel-oidc-token'] || process.env.VERCEL_OIDC_TOKEN;
   if (!token) {
     return res.status(503).json({
       error: 'AI article generation is not configured for this deployment yet. Add AI Gateway access in Vercel, then try again.',
