@@ -11,7 +11,6 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
     const [loadingTextOpacity, setLoadingTextOpacity] = useState(1);
     const [startPopupOpacity, setStartPopupOpacity] = useState(0);
     const [firefoxPopupOpacity, setFirefoxPopupOpacity] = useState(0);
-    const [showModernConnection, setShowModernConnection] = useState(false);
 
     const [showBiosInfo, setShowBiosInfo] = useState(false);
     const [showLoadingResources, setShowLoadingResources] = useState(false);
@@ -192,8 +191,7 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
                     opacity: startPopupOpacity,
                 })}
             >
-                <div className="start-popup" style={styles.startPopup}>
-                    <div className="start-popup-content">
+                <div style={styles.startPopup}>
                         <p style={styles.red}>
                             <b>MINISTRY OF TRUTH · RECORDS DIVISION</b>
                         </p>
@@ -219,39 +217,6 @@ const LoadingScreen: React.FC<LoadingProps> = () => {
                                 <p>START</p>
                             </div>
                         </div>
-                    </div>
-                    <aside className="orwell-side-rail">
-                        <button
-                            className="orwell-side-button"
-                            type="button"
-                            aria-expanded={showModernConnection}
-                            onClick={() => setShowModernConnection((open) => !open)}
-                        >
-                            {showModernConnection ? 'CLOSE' : 'FROM ORWELL TO TODAY'}
-                        </button>
-                        {showModernConnection && (
-                            <div style={styles.modernConnection}>
-                                <p style={styles.connectionHeading}>1984 · MODERN DISINFORMATION</p>
-                                <p>
-                                    Winston invents Comrade Ogilvy and edits the
-                                    past until a fictional person appears real.
-                                    Russia&apos;s Doppelganger campaign similarly
-                                    used fake news sites and online identities
-                                    to spread misleading narratives. This
-                                    project explores how fabricated stories can
-                                    shape public belief.
-                                </p>
-                                <a
-                                    className="issue-link-button"
-                                    href="https://www.justice.gov/usao-edpa/pr/justice-department-disrupts-covert-russian-government-sponsored-foreign-malign"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    READ MORE ABOUT THIS ISSUE ↗
-                                </a>
-                            </div>
-                        )}
-                    </aside>
                 </div>
             </div>
             {firefoxError && (
@@ -355,16 +320,11 @@ const styles: StyleSheetCSS = {
     },
     startPopup: {
         backgroundColor: '#000',
-        width: 'min(1000px, calc(100% - 32px))',
-        maxHeight: 'calc(100% - 32px)',
-        overflowY: 'auto',
         padding: 24,
         border: '7px solid #fff',
-        boxSizing: 'border-box',
         display: 'flex',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: 24,
+        flexDirection: 'column',
+        justifyContent: 'center',
     },
     headerInfo: {
         marginLeft: 64,
@@ -376,22 +336,6 @@ const styles: StyleSheetCSS = {
         fontSize: '0.8em',
         opacity: 0.75,
         marginTop: 0,
-    },
-    modernConnection: {
-        marginTop: 0,
-        marginBottom: 0,
-        padding: '12px 16px',
-        border: '1px solid #555',
-        color: '#e7e7e7',
-        lineHeight: 1.45,
-        fontSize: '0.82em',
-    },
-    connectionHeading: {
-        color: '#c27a56',
-        fontSize: '0.82em',
-        fontWeight: 700,
-        letterSpacing: 1.4,
-        margin: '0 0 6px',
     },
     link: {
         // textDecoration: 'none',
